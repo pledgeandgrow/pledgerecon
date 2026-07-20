@@ -1,0 +1,41 @@
+{
+  "name": "pledgerecon",
+  "version": "0.1.0",
+  "description": "Rust-native dependency vulnerability scanner with AST reachability, taint analysis, and AI triage",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pledgeandgrow/pledgerecon"
+  },
+  "homepage": "https://github.com/pledgeandgrow/pledgerecon",
+  "bugs": {
+    "url": "https://github.com/pledgeandgrow/pledgerecon/issues"
+  },
+  "keywords": [
+    "security",
+    "vulnerability",
+    "scanner",
+    "sca",
+    "sast",
+    "sbom",
+    "reachability",
+    "triage",
+    "secrets",
+    "dependency"
+  ],
+  "bin": {
+    "pledgerecon": "bin/pledgerecon.js"
+  },
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "files": [
+    "bin/pledgerecon.js",
+    "install.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=14"
+  },
+  "optionalDependencies": {}
+}

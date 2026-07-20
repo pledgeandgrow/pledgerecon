@@ -1,0 +1,52 @@
+version: 2.1
+
+# PledgeRecon CircleCI Orb
+# Usage in your config:
+# orbs:
+#   pledgerecon: pledgeandgrow/pledgerecon@1.0.0
+
+commands:
+  pledgerecon-scan:
+    description: "Run PledgeRecon vulnerability scan"
+    parameters:
+      path:
+        type: string
+        default: "."
+      min-severity:
+        type: string
+        default: "high"
+      fail-on-findings:
+        type: boolean
+        default: true
+    steps:
+      - run:
+          name: Install PledgeRecon
+          command: |
+            curl -L https://github.com/pledgeandgrow/pledgerecon/releases/latest/download/pledgerecon-linux-amd64 -o /usr/local/bin/pledgerecon
+            chmod +x /usr/local/bin/pledgerecon
+      - run:
+          name: Run vulnerability scan
+          command: |
+            pledgerecon scan << parameters.path >> \
+              --min-severity << parameters.min-severity >> \
+              --format json \
+              --output pledgerecon-report.json \
+              <<# parameters.fail-on-findings >>--fail-on-findings<</ parameters.fail-on-findings >>
+      - store_artifacts:
+          path: pledgerecon-report.json
+          destination: pledgerecon-report.json
+
+jobs:
+  pledgerecon:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - pledgerecon-scan:
+          min-severity: high
+          fail-on-findings: true
+
+workflows:
+  pledgerecon-scan:
+    jobs:
+      - pledgerecon

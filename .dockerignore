@@ -1,0 +1,7 @@
+target/
+.git/
+.pledgerecon-cache/
+node_modules/
+dist/
+*.md
+!README.md

@@ -1,0 +1,35 @@
+name: PledgeRecon Cache Pre-Population
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+  workflow_dispatch: {}
+
+jobs:
+  pre-populate-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PledgeRecon
+        run: |
+          curl -L https://github.com/pledgeandgrow/pledgerecon/releases/latest/download/pledgerecon-linux-amd64 -o /usr/local/bin/pledgerecon
+          chmod +x /usr/local/bin/pledgerecon
+
+      - name: Pre-populate advisory cache
+        run: pledgerecon cache download --output .pledgerecon-cache
+
+      - name: Upload cache artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pledgerecon-advisory-cache
+          path: .pledgerecon-cache/
+          retention-days: 7
+
+      - name: Cache for reuse
+        uses: actions/cache@v4
+        with:
+          path: .pledgerecon-cache
+          key: pledgerecon-advisory-cache-${{ github.run_id }}
+          restore-keys: |
+            pledgerecon-advisory-cache-

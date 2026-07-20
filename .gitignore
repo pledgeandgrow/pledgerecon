@@ -1,0 +1,13 @@
+/target
+node_modules
+npm/vendor
+Cargo.lock
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+.env
+.pledgerecon-cache/

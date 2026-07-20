@@ -1,0 +1,113 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/pledgerecon-core",
+    "crates/pledgerecon-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+authors = ["PledgeLabs"]
+repository = "https://github.com/pledgeandgrow/pledgerecon"
+description = "Rust-native dependency vulnerability scanner — AST reachability, WASM rules, LLM triage, SBOM generation"
+keywords = ["security", "vulnerability", "scanner", "sbom", "dependencies"]
+categories = ["command-line-utilities", "development-tools"]
+homepage = "https://github.com/pledgeandgrow/pledgerecon"
+
+[workspace.dependencies]
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Parallelism
+rayon = "1"
+dashmap = "6"
+crossbeam = "0.8"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Filesystem walking (respects .gitignore)
+ignore = "0.4"
+
+# HTTP client for advisory database fetching
+ureq = { version = "2", features = ["json"] }
+
+# WASM plugin runtime
+wasmtime = "26"
+
+# AST parsing — tree-sitter for multi-language reachability
+tree-sitter = "0.25"
+tree-sitter-rust = "0.23"
+tree-sitter-javascript = "0.23"
+tree-sitter-typescript = "0.23"
+tree-sitter-python = "0.23"
+tree-sitter-go = "0.23"
+tree-sitter-java = "0.23"
+
+# TOML parsing (Cargo.toml, pyproject.toml)
+toml = "0.8"
+
+# YAML parsing (pubspec.yaml, Chart.yaml)
+serde_yaml = "0.9"
+
+# Regex
+regex = "1"
+
+# Hashing
+blake3 = "1"
+sha2 = "0.10"
+
+# Memory-mapped file I/O
+memmap2 = "0.9"
+
+# Progress reporting
+indicatif = "0.17"
+
+# Small vectors (stack-allocated)
+smallvec = { version = "1", features = ["serde"] }
+
+# Byte-oriented strings (no UTF-8 validation overhead)
+bstr = "1"
+
+# Multi-pattern prefilter
+aho-corasick = "1"
+memchr = "2"
+
+# Glob pattern matching
+glob = "0.3"
+
+# Base64 encoding
+base64 = "0.22"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Semver parsing (dependency version ranges)
+semver = "1"
+
+# UUID for scan IDs
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Internal crates
+pledgerecon-core = { path = "crates/pledgerecon-core", version = "0.1.0" }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 1

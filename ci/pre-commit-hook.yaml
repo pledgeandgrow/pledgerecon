@@ -1,0 +1,22 @@
+# PledgeRecon pre-commit hook
+# Add to your .pre-commit-config.yaml:
+#
+# repos:
+#   - repo: https://github.com/pledgeandgrow/pledgerecon
+#     rev: v0.1.0
+#     hooks:
+#       - id: pledgerecon
+#         name: PledgeRecon vulnerability scan
+#         entry: pledgerecon scan
+#         language: system
+#         files: ^(Cargo\.toml|package\.json|go\.mod|requirements\.txt|pyproject\.toml|pubspec\.yaml)$
+#         pass_filenames: false
+#         args: ["--min-severity", "high", "--format", "text"]
+
+- id: pledgerecon
+  name: PledgeRecon vulnerability scan
+  entry: pledgerecon scan
+  language: system
+  files: ^(Cargo\.toml|package\.json|go\.mod|requirements\.txt|pyproject\.toml|pubspec\.yaml)$
+  pass_filenames: false
+  args: ["--min-severity", "high", "--format", "text"]

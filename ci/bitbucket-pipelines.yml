@@ -1,0 +1,24 @@
+# PledgeRecon — Bitbucket Pipeline integration
+# Add this to your bitbucket-pipelines.yml:
+
+pipelines:
+  default:
+    - step:
+        name: PledgeRecon Security Scan
+        image: ghcr.io/pledgeandgrow/pledgerecon:latest
+        script:
+          - pledgerecon scan . --min-severity high --format json --output pledgerecon-report.json --fail-on-findings
+        artifacts:
+          - pledgerecon-report.json
+
+  branches:
+    main:
+      - step:
+          name: PledgeRecon Security Scan + SBOM
+          image: ghcr.io/pledgeandgrow/pledgerecon:latest
+          script:
+            - pledgerecon scan . --min-severity high --format sarif --output pledgerecon.sarif --fail-on-findings
+            - pledgerecon sbom . --format cyclonedx --output sbom.json
+          artifacts:
+            - pledgerecon.sarif
+            - sbom.json

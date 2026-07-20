@@ -1,0 +1,34 @@
+# PledgeRecon — GitLab CI template
+# Add this to your .gitlab-ci.yml or include it:
+# include:
+#   - remote: 'https://raw.githubusercontent.com/pledgeandgrow/pledgerecon/main/ci/gitlab-ci.yml'
+
+pledgerecon:scan:
+  stage: test
+  image:
+    name: ghcr.io/pledgeandgrow/pledgerecon:latest
+    entrypoint: [""]
+  variables:
+    PLEDGERECON_MIN_SEVERITY: "high"
+    PLEDGERECON_FORMAT: "gitlab-code-quality"
+  script:
+    - pledgerecon scan . --min-severity high --format gitlab-code-quality --output pledgerecon-report.json
+    - pledgerecon scan . --min-severity high --format sarif --output pledgerecon.sarif
+  artifacts:
+    reports:
+      codequality: pledgerecon-report.json
+    paths:
+      - pledgerecon.sarif
+  allow_failure: false
+
+pledgerecon:sbom:
+  stage: test
+  image:
+    name: ghcr.io/pledgeandgrow/pledgerecon:latest
+    entrypoint: [""]
+  script:
+    - pledgerecon sbom . --format cyclonedx --output sbom.json
+  artifacts:
+    paths:
+      - sbom.json
+  allow_failure: true

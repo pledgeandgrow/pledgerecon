@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Goal 2: Run all unit tests (cross-platform)
+  test:
+    name: Tests (${{ matrix.os }} / ${{ matrix.rust }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        rust: [stable, beta]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Run tests
+        run: cargo test --all --verbose
+
+  # Goal 3: Integration tests with fixture projects
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run integration tests
+        run: cargo test --test '*' --verbose
+      - name: Build binary
+        run: cargo build --release
+      - name: Scan Rust fixture
+        run: |
+          ./target/release/pledgerecon scan tests/fixtures/rust-project --format json --output /tmp/rust-report.json
+          test -f /tmp/rust-report.json
+      - name: Scan Node fixture
+        run: |
+          ./target/release/pledgerecon scan tests/fixtures/node-project --format json --output /tmp/node-report.json
+          test -f /tmp/node-report.json
+      - name: Scan Python fixture
+        run: |
+          ./target/release/pledgerecon scan tests/fixtures/python-project --format json --output /tmp/python-report.json
+          test -f /tmp/python-report.json
+      - name: Scan Go fixture
+        run: |
+          ./target/release/pledgerecon scan tests/fixtures/go-project --format json --output /tmp/go-report.json
+          test -f /tmp/go-report.json
+      - name: Generate SBOM
+        run: |
+          ./target/release/pledgerecon sbom tests/fixtures/rust-project --format cyclonedx --output /tmp/sbom.json
+          test -f /tmp/sbom.json
+
+  # Goal 4: Format check
+  fmt:
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  # Goal 5: Clippy with -D warnings
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Run clippy
+        run: cargo clippy --all --all-targets -- -D warnings
+
+  # Goal 6: cargo-deny (dogfooding — audit our own dependencies)
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+      - name: Check advisories
+        run: cargo deny check advisories
+      - name: Check licenses
+        run: cargo deny check licenses
+      - name: Check bans
+        run: cargo deny check bans
+      - name: Check sources
+        run: cargo deny check sources
+
+  # Code coverage
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install tarpaulin
+        run: cargo install cargo-tarpaulin --locked
+      - name: Run coverage
+        run: cargo tarpaulin --workspace --out Lcov --output-dir coverage -- --lib
+        continue-on-error: true
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/lcov.info
+          fail_ci_if_error: false

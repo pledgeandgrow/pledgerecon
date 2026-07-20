@@ -1,0 +1,12 @@
+{
+  "name": "pledgerecon-plugin-example",
+  "version": "1.0.0",
+  "description": "AssemblyScript example plugin for PledgeRecon",
+  "license": "MIT",
+  "scripts": {
+    "build": "asc assembly/index.ts --target wasm --exportStart --exportMemory"
+  },
+  "devDependencies": {
+    "assemblyscript": "^0.27.0"
+  }
+}

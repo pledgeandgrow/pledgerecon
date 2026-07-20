@@ -1,0 +1,71 @@
+name: 'PledgeRecon Security Scan'
+description: 'Scan dependencies for vulnerabilities with AST reachability and LLM triage'
+branding:
+  icon: 'shield'
+  color: 'blue'
+inputs:
+  path:
+    description: 'Path to scan'
+    required: false
+    default: '.'
+  min-severity:
+    description: 'Minimum severity to report (low, medium, high, critical)'
+    required: false
+    default: 'low'
+  fail-on-findings:
+    description: 'Fail the workflow if vulnerabilities are found'
+    required: false
+    default: 'true'
+  format:
+    description: 'Output format (text, json, sarif, html, junit-xml, gitlab-code-quality, sonarqube)'
+    required: false
+    default: 'sarif'
+  triage:
+    description: 'Enable LLM-powered triage'
+    required: false
+    default: 'false'
+  generate-sbom:
+    description: 'Generate an SBOM alongside the scan'
+    required: false
+    default: 'false'
+  baseline-path:
+    description: 'Path to baseline file for baseline comparison (fail only on new vulns)'
+    required: false
+    default: ''
+outputs:
+  report-path:
+    description: 'Path to the generated report file'
+runs:
+  using: 'composite'
+  steps:
+    - name: Install PledgeRecon
+      shell: bash
+      run: |
+        curl -L https://github.com/pledgeandgrow/pledgerecon/releases/latest/download/pledgerecon-linux-amd64 -o /usr/local/bin/pledgerecon
+        chmod +x /usr/local/bin/pledgerecon
+    - name: Run PledgeRecon scan
+      shell: bash
+      run: |
+        pledgerecon scan ${{ inputs.path }} \
+          --min-severity ${{ inputs.min-severity }} \
+          --format ${{ inputs.format }} \
+          --output pledgerecon-report.${{ inputs.format }} \
+          ${{ inputs.fail-on-findings == 'true' && '--fail-on-findings' || '' }} \
+          ${{ inputs.triage == 'true' && '--triage' || '' }} \
+          ${{ inputs.baseline-path != '' && format('--baseline {0}', inputs.baseline-path) || '' }}
+    - name: Upload SARIF results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always() && inputs.format == 'sarif'
+      with:
+        sarif_file: pledgerecon-report.sarif
+    - name: Generate SBOM
+      if: inputs.generate-sbom == 'true'
+      shell: bash
+      run: pledgerecon sbom ${{ inputs.path }} --format cyclonedx --output sbom.json
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: pledgerecon-report
+        path: |
+          pledgerecon-report.*
+          sbom.json
