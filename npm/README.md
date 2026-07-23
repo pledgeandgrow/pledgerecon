@@ -31,7 +31,6 @@ directly — no Node.js runtime overhead during scanning.
 | macOS | x64 | `x86_64-apple-darwin` |
 | macOS | arm64 (Apple Silicon) | `aarch64-apple-darwin` |
 | Linux | x64 | `x86_64-unknown-linux-gnu` |
-| Linux | arm64 | `aarch64-unknown-linux-gnu` |
 | Windows | x64 | `x86_64-pc-windows-msvc` |
 
 ### Fallback

@@ -14,7 +14,6 @@ const PLATFORMS = {
   "darwin x64": { target: "x86_64-apple-darwin", archive: "tar.gz" },
   "darwin arm64": { target: "aarch64-apple-darwin", archive: "tar.gz" },
   "linux x64": { target: "x86_64-unknown-linux-gnu", archive: "tar.gz" },
-  "linux arm64": { target: "aarch64-unknown-linux-gnu", archive: "tar.gz" },
   "win32 x64": { target: "x86_64-pc-windows-msvc", archive: "zip" },
 };
 
