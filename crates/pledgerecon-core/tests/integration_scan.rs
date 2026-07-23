@@ -5,14 +5,13 @@
 //! real fixture projects.
 
 use pledgerecon_core::config::ScanConfig;
-use pledgerecon_core::scanner::Scanner;
-use pledgerecon_core::output::{to_json, to_sarif, to_text, to_markdown};
 use pledgerecon_core::dependency::build_dependency_graph;
+use pledgerecon_core::output::{to_json, to_markdown, to_sarif, to_text};
+use pledgerecon_core::scanner::Scanner;
 use pledgerecon_core::secret::{
-    builtin_patterns, scan_source_code, scan_env_files, scan_iac_files,
-    scan_manifests, scan_git_history, shannon_entropy, detect_high_entropy,
-    SecretType, SecretSeverity, IaCKind, ManifestKind, ManifestToScan,
-    GitCommitContent, ContainerLayer, scan_container_secrets,
+    ContainerLayer, GitCommitContent, IaCKind, ManifestKind, ManifestToScan, SecretType,
+    builtin_patterns, detect_high_entropy, scan_container_secrets, scan_env_files,
+    scan_git_history, scan_iac_files, scan_manifests, scan_source_code, shannon_entropy,
 };
 use std::path::PathBuf;
 use tempfile::tempdir;
@@ -175,9 +174,14 @@ fn test_scan_with_reachability_rust() {
         ..ScanConfig::default()
     };
     let scanner = Scanner::new(config);
-    let report = scanner.scan(&dir).expect("scan with reachability should succeed");
+    let report = scanner
+        .scan(&dir)
+        .expect("scan with reachability should succeed");
     // Reachability may downgrade findings to Info — just verify it doesn't crash
-    assert!(report.duration_ms < 30000, "reachability should complete in <30s");
+    assert!(
+        report.duration_ms < 30000,
+        "reachability should complete in <30s"
+    );
 }
 
 // ─── Secret scanning integration ───────────────────────────────────────────
@@ -199,36 +203,62 @@ fn test_secret_scan_finds_aws_key_in_tempdir() {
     let patterns = builtin_patterns();
     let result = scan_source_code(tmp.path(), &patterns).expect("scan should succeed");
     assert!(result.total_secrets >= 1, "should find AWS key");
-    assert!(result.findings.iter().any(|f| f.secret_type == SecretType::AwsAccessKey));
+    assert!(
+        result
+            .findings
+            .iter()
+            .any(|f| f.secret_type == SecretType::AwsAccessKey)
+    );
 }
 
 #[test]
 fn test_secret_scan_finds_github_token_in_tempdir() {
     let tmp = tempdir().expect("failed to create tempdir");
     let file_path = tmp.path().join("auth.py");
-    std::fs::write(&file_path, "TOKEN = \"ghp_1234567890abcdefghijklmnopqrstuvwxyz\"\n").unwrap();
+    std::fs::write(
+        &file_path,
+        "TOKEN = \"ghp_1234567890abcdefghijklmnopqrstuvwxyz\"\n",
+    )
+    .unwrap();
 
     let patterns = builtin_patterns();
     let result = scan_source_code(tmp.path(), &patterns).expect("scan should succeed");
     assert!(result.total_secrets >= 1, "should find GitHub token");
-    assert!(result.findings.iter().any(|f| f.secret_type == SecretType::GitHubToken));
+    assert!(
+        result
+            .findings
+            .iter()
+            .any(|f| f.secret_type == SecretType::GitHubToken)
+    );
 }
 
 #[test]
 fn test_secret_scan_finds_private_key_in_tempdir() {
     let tmp = tempdir().expect("failed to create tempdir");
     let file_path = tmp.path().join("id_rsa.pem");
-    std::fs::write(&file_path, "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----\n").unwrap();
+    std::fs::write(
+        &file_path,
+        "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----\n",
+    )
+    .unwrap();
 
     let patterns = builtin_patterns();
     let result = scan_source_code(tmp.path(), &patterns).expect("scan should succeed");
     assert!(result.total_secrets >= 1, "should find private key");
-    assert!(result.findings.iter().any(|f| f.secret_type == SecretType::PrivateKeyPem));
+    assert!(
+        result
+            .findings
+            .iter()
+            .any(|f| f.secret_type == SecretType::PrivateKeyPem)
+    );
 }
 
 #[test]
 fn test_secret_scan_env_file_integration() {
-    let files = vec![(".env".into(), "AWS_SECRET_ACCESS_KEY=mysecret123\nDATABASE_URL=postgres://user:pass@db:5432\n".into())];
+    let files = vec![(
+        ".env".into(),
+        "AWS_SECRET_ACCESS_KEY=mysecret123\nDATABASE_URL=postgres://user:pass@db:5432\n".into(),
+    )];
     let result = scan_env_files(&files).expect("env scan should succeed");
     assert!(result.total_secrets >= 1, "should find sensitive env vars");
 }
@@ -240,7 +270,10 @@ fn test_secret_scan_iac_terraform_integration() {
          "provider \"aws\" { access_key = \"AKIAIOSFODNN7EXAMPLE\" secret_key = \"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\" }".into()),
     ];
     let result = scan_iac_files(&files).expect("IaC scan should succeed");
-    assert!(result.total_secrets >= 1, "should find secrets in Terraform");
+    assert!(
+        result.total_secrets >= 1,
+        "should find secrets in Terraform"
+    );
 }
 
 #[test]
@@ -248,20 +281,34 @@ fn test_secret_scan_container_layer_integration() {
     let layers = vec![ContainerLayer {
         digest: "sha256:abc".into(),
         command: "COPY .".into(),
-        files: [("etc/config".into(), "GITHUB_TOKEN=ghp_1234567890abcdefghijklmnopqrstuvwxyz\n".into())].into(),
+        files: [(
+            "etc/config".into(),
+            "GITHUB_TOKEN=ghp_1234567890abcdefghijklmnopqrstuvwxyz\n".into(),
+        )]
+        .into(),
     }];
     let result = scan_container_secrets(&layers).expect("container scan should succeed");
-    assert!(result.total_secrets >= 1, "should find secrets in container layer");
+    assert!(
+        result.total_secrets >= 1,
+        "should find secrets in container layer"
+    );
 }
 
 #[test]
 fn test_secret_scan_git_history_integration() {
     let commits = vec![GitCommitContent {
         commit_sha: "deadbeef".into(),
-        files: [("config.js".into(), "const token = \"ghp_1234567890abcdefghijklmnopqrstuvwxyz\";\n".into())].into(),
+        files: [(
+            "config.js".into(),
+            "const token = \"ghp_1234567890abcdefghijklmnopqrstuvwxyz\";\n".into(),
+        )]
+        .into(),
     }];
     let result = scan_git_history(&commits).expect("git history scan should succeed");
-    assert!(result.total_secrets >= 1, "should find secrets in git history");
+    assert!(
+        result.total_secrets >= 1,
+        "should find secrets in git history"
+    );
 }
 
 #[test]
@@ -279,8 +326,14 @@ fn test_secret_scan_manifest_npmrc_integration() {
 fn test_entropy_detection_integration() {
     let high_entropy = "Zm9vYmFyMTIzNDU2Nzg5MDEyMzQ1Njc4OTBhYmNkZWYoKSk=";
     let low_entropy = "hello world";
-    assert!(shannon_entropy(high_entropy) > 4.0, "base64-like string should have high entropy");
-    assert!(shannon_entropy(low_entropy) < 4.0, "plain text should have low entropy");
+    assert!(
+        shannon_entropy(high_entropy) > 4.0,
+        "base64-like string should have high entropy"
+    );
+    assert!(
+        shannon_entropy(low_entropy) < 4.0,
+        "plain text should have low entropy"
+    );
     let findings = detect_high_entropy(high_entropy, "test.txt", 4.0, 20);
     assert!(!findings.is_empty(), "should detect high entropy string");
     let no_findings = detect_high_entropy(low_entropy, "test.txt", 4.0, 20);
@@ -293,7 +346,10 @@ fn test_entropy_detection_integration() {
 fn test_dependency_graph_rust_has_transitive_deps() {
     let dir = fixture_dir("rust-project");
     let graph = build_dependency_graph(&dir).expect("failed to build graph");
-    assert!(graph.dependencies.len() >= 1, "should have at least 1 dependency");
+    assert!(
+        !graph.dependencies.is_empty(),
+        "should have at least 1 dependency"
+    );
     assert!(!graph.direct.is_empty(), "should have direct dependencies");
 }
 
@@ -301,7 +357,10 @@ fn test_dependency_graph_rust_has_transitive_deps() {
 fn test_dependency_graph_node_has_express() {
     let dir = fixture_dir("node-project");
     let graph = build_dependency_graph(&dir).expect("failed to build graph");
-    assert!(graph.dependencies.values().any(|d| d.name == "express"), "should find express");
+    assert!(
+        graph.dependencies.values().any(|d| d.name == "express"),
+        "should find express"
+    );
 }
 
 // ─── Scan report fields ────────────────────────────────────────────────────
@@ -332,5 +391,8 @@ fn test_scan_report_timestamp_is_recent() {
     let report = scanner.scan(&dir).expect("scan should succeed");
     let now = chrono::Utc::now();
     let diff = now.signed_duration_since(report.scanned_at);
-    assert!(diff.num_seconds() < 60, "scan timestamp should be within last 60s");
+    assert!(
+        diff.num_seconds() < 60,
+        "scan timestamp should be within last 60s"
+    );
 }

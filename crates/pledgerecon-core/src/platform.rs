@@ -34,7 +34,12 @@ pub struct VsCodeDiagnostic {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum VsCodeSeverity { Error, Warning, Information, Hint }
+pub enum VsCodeSeverity {
+    Error,
+    Warning,
+    Information,
+    Hint,
+}
 
 /// Generate VS Code diagnostics from scan findings.
 pub fn generate_vscode_diagnostics(report: &ScanReport) -> Vec<VsCodeDiagnostic> {
@@ -44,7 +49,9 @@ pub fn generate_vscode_diagnostics(report: &ScanReport) -> Vec<VsCodeDiagnostic>
         .filter(|f| f.status != FindingStatus::FalsePositive)
         .map(|f| {
             let severity = match f.severity {
-                VulnerabilitySeverity::Critical | VulnerabilitySeverity::High => VsCodeSeverity::Error,
+                VulnerabilitySeverity::Critical | VulnerabilitySeverity::High => {
+                    VsCodeSeverity::Error
+                }
                 VulnerabilitySeverity::Medium => VsCodeSeverity::Warning,
                 VulnerabilitySeverity::Low => VsCodeSeverity::Information,
                 VulnerabilitySeverity::Info => VsCodeSeverity::Hint,
@@ -55,7 +62,10 @@ pub fn generate_vscode_diagnostics(report: &ScanReport) -> Vec<VsCodeDiagnostic>
                 column: 1,
                 severity,
                 source: "pledgerecon".to_string(),
-                message: format!("{}: {} in {}@{}", f.advisory_id, f.summary, f.package, f.version),
+                message: format!(
+                    "{}: {} in {}@{}",
+                    f.advisory_id, f.summary, f.package, f.version
+                ),
                 code: f.advisory_id.clone(),
             }
         })
@@ -93,7 +103,10 @@ pub fn generate_jetbrains_inspections(report: &ScanReport) -> Vec<JetBrainsInspe
                 file: f.manifest_path.display().to_string(),
                 line: 1,
                 severity: severity.to_string(),
-                message: format!("{}: {} in {}@{}", f.advisory_id, f.summary, f.package, f.version),
+                message: format!(
+                    "{}: {} in {}@{}",
+                    f.advisory_id, f.summary, f.package, f.version
+                ),
                 highlight_type: highlight.to_string(),
                 quick_fix: f.fix_version.as_ref().map(|v| format!("Upgrade to {}", v)),
             }
@@ -215,17 +228,28 @@ pub fn create_linear_issues(report: &ScanReport, team_id: &str) -> Vec<LinearIss
     report
         .findings
         .iter()
-        .filter(|f| f.status != FindingStatus::FalsePositive && f.severity >= VulnerabilitySeverity::Medium)
+        .filter(|f| {
+            f.status != FindingStatus::FalsePositive && f.severity >= VulnerabilitySeverity::Medium
+        })
         .map(|f| {
             let priority = match f.severity {
                 VulnerabilitySeverity::Critical => 1, // Urgent
-                VulnerabilitySeverity::High => 2,    // High
-                VulnerabilitySeverity::Medium => 3,  // Medium
+                VulnerabilitySeverity::High => 2,     // High
+                VulnerabilitySeverity::Medium => 3,   // Medium
                 _ => 4,                               // Low
             };
             LinearIssue {
-                title: format!("[{}] {} in {}@{}", f.advisory_id, f.summary, f.package, f.version),
-                description: format!("{}\n\nPackage: {}@{}\nFix: {}", f.description, f.package, f.version, f.fix_version.as_deref().unwrap_or("N/A")),
+                title: format!(
+                    "[{}] {} in {}@{}",
+                    f.advisory_id, f.summary, f.package, f.version
+                ),
+                description: format!(
+                    "{}\n\nPackage: {}@{}\nFix: {}",
+                    f.description,
+                    f.package,
+                    f.version,
+                    f.fix_version.as_deref().unwrap_or("N/A")
+                ),
                 priority,
                 labels: vec!["Security".to_string(), "Vulnerability".to_string()],
                 team_id: team_id.to_string(),
@@ -272,7 +296,12 @@ pub fn to_dependabot_alerts(report: &ScanReport) -> Vec<DependabotAlert> {
         .filter(|f| f.status != FindingStatus::FalsePositive)
         .map(|f| {
             let ecosystem = f.package.split(':').next().unwrap_or("unknown").to_string();
-            let name = f.package.split(':').nth(1).unwrap_or(&f.package).to_string();
+            let name = f
+                .package
+                .split(':')
+                .nth(1)
+                .unwrap_or(&f.package)
+                .to_string();
             let severity = match f.severity {
                 VulnerabilitySeverity::Critical => "critical",
                 VulnerabilitySeverity::High => "high",
@@ -320,7 +349,9 @@ pub fn create_servicenow_incidents(report: &ScanReport) -> Vec<ServiceNowInciden
     report
         .findings
         .iter()
-        .filter(|f| f.status != FindingStatus::FalsePositive && f.severity >= VulnerabilitySeverity::High)
+        .filter(|f| {
+            f.status != FindingStatus::FalsePositive && f.severity >= VulnerabilitySeverity::High
+        })
         .map(|f| {
             let (urgency, impact, priority) = match f.severity {
                 VulnerabilitySeverity::Critical => ("1", "1", "1"),
@@ -329,7 +360,13 @@ pub fn create_servicenow_incidents(report: &ScanReport) -> Vec<ServiceNowInciden
             };
             ServiceNowIncident {
                 short_description: format!("[{}] {} in {}", f.advisory_id, f.summary, f.package),
-                description: format!("{}\n\nPackage: {}@{}\nFix: {}", f.description, f.package, f.version, f.fix_version.as_deref().unwrap_or("N/A")),
+                description: format!(
+                    "{}\n\nPackage: {}@{}\nFix: {}",
+                    f.description,
+                    f.package,
+                    f.version,
+                    f.fix_version.as_deref().unwrap_or("N/A")
+                ),
                 urgency: urgency.to_string(),
                 impact: impact.to_string(),
                 priority: priority.to_string(),
@@ -380,7 +417,8 @@ pub fn to_cef_events(report: &ScanReport) -> Vec<CefEvent> {
                 severity: severity.to_string(),
                 extension: format!(
                     "pkg={} ver={} fix={} reach={}",
-                    f.package, f.version,
+                    f.package,
+                    f.version,
                     f.fix_version.as_deref().unwrap_or("N/A"),
                     f.reachability
                 ),
@@ -393,8 +431,14 @@ pub fn to_cef_events(report: &ScanReport) -> Vec<CefEvent> {
 pub fn cef_to_string(event: &CefEvent) -> String {
     format!(
         "CEF:{}|{}|{}|{}|{}|{}|{}|{}",
-        event.version, event.vendor, event.product, event.product_version,
-        event.signature_id, event.name, event.severity, event.extension
+        event.version,
+        event.vendor,
+        event.product,
+        event.product_version,
+        event.signature_id,
+        event.name,
+        event.severity,
+        event.extension
     )
 }
 
@@ -423,7 +467,10 @@ pub fn create_pagerduty_events(report: &ScanReport, routing_key: &str) -> Vec<Pa
     report
         .findings
         .iter()
-        .filter(|f| f.status != FindingStatus::FalsePositive && f.severity >= VulnerabilitySeverity::Critical)
+        .filter(|f| {
+            f.status != FindingStatus::FalsePositive
+                && f.severity >= VulnerabilitySeverity::Critical
+        })
         .map(|f| {
             let severity = match f.severity {
                 VulnerabilitySeverity::Critical => "critical",
@@ -434,7 +481,10 @@ pub fn create_pagerduty_events(report: &ScanReport, routing_key: &str) -> Vec<Pa
                 event_action: "trigger".to_string(),
                 dedup_key: format!("pledgerecon-{}", f.advisory_id),
                 payload: PagerDutyPayload {
-                    summary: format!("[{}] {} in {}@{}", f.advisory_id, f.summary, f.package, f.version),
+                    summary: format!(
+                        "[{}] {} in {}@{}",
+                        f.advisory_id, f.summary, f.package, f.version
+                    ),
                     severity: severity.to_string(),
                     source: "PledgeRecon".to_string(),
                     component: f.package.clone(),
@@ -463,7 +513,11 @@ pub struct DiscordNotification {
 
 impl DiscordNotification {
     pub fn new(webhook_url: &str) -> Self {
-        Self { webhook_url: webhook_url.to_string(), username: Some("PledgeRecon".to_string()), avatar_url: None }
+        Self {
+            webhook_url: webhook_url.to_string(),
+            username: Some("PledgeRecon".to_string()),
+            avatar_url: None,
+        }
     }
 
     /// Build a Discord embed payload from a scan report.
@@ -472,8 +526,20 @@ impl DiscordNotification {
         let high = report.count_by_severity(VulnerabilitySeverity::High);
         let medium = report.count_by_severity(VulnerabilitySeverity::Medium);
         let low = report.count_by_severity(VulnerabilitySeverity::Low);
-        let color = if critical > 0 { 0xFF0000 } else if high > 0 { 0xFF6600 } else if medium > 0 { 0xFFCC00 } else { 0x00FF00 };
-        let title = if report.findings.is_empty() { "No vulnerabilities found".to_string() } else { format!("Found {} vulnerabilities", report.findings.len()) };
+        let color = if critical > 0 {
+            0xFF0000
+        } else if high > 0 {
+            0xFF6600
+        } else if medium > 0 {
+            0xFFCC00
+        } else {
+            0x00FF00
+        };
+        let title = if report.findings.is_empty() {
+            "No vulnerabilities found".to_string()
+        } else {
+            format!("Found {} vulnerabilities", report.findings.len())
+        };
         serde_json::json!({
             "username": self.username,
             "embeds": [{
@@ -494,24 +560,43 @@ impl DiscordNotification {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scanner::ScanReport;
     use crate::finding::{Finding, FindingStatus, ReachabilityStatus, VulnerabilitySeverity};
+    use crate::scanner::ScanReport;
     use std::path::PathBuf;
 
     fn make_finding(sev: VulnerabilitySeverity) -> Finding {
         Finding {
-            advisory_id: "CVE-2024-12345".into(), summary: "Test vuln".into(), description: "A test".into(),
-            severity: sev, cvss_score: Some(7.5), package: "npm:lodash".into(), version: "4.17.0".into(),
-            fix_version: Some("4.17.21".into()), fix_available: true,
-            reachability: ReachabilityStatus::Reachable, vulnerable_functions: vec![], call_chain: vec![],
-            status: FindingStatus::Pending, triage_explanation: None,
-            references: vec!["https://example.com/ref".into()], cwes: vec!["CWE-79".into()],
-            manifest_path: PathBuf::from("package.json"), aliases: vec!["GHSA-test".into()],
+            advisory_id: "CVE-2024-12345".into(),
+            summary: "Test vuln".into(),
+            description: "A test".into(),
+            severity: sev,
+            cvss_score: Some(7.5),
+            package: "npm:lodash".into(),
+            version: "4.17.0".into(),
+            fix_version: Some("4.17.21".into()),
+            fix_available: true,
+            reachability: ReachabilityStatus::Reachable,
+            vulnerable_functions: vec![],
+            call_chain: vec![],
+            status: FindingStatus::Pending,
+            triage_explanation: None,
+            references: vec!["https://example.com/ref".into()],
+            cwes: vec!["CWE-79".into()],
+            manifest_path: PathBuf::from("package.json"),
+            aliases: vec!["GHSA-test".into()],
         }
     }
 
     fn make_report(findings: Vec<Finding>) -> ScanReport {
-        ScanReport { scan_id: "test".into(), project_name: "test".into(), scanned_at: chrono::Utc::now(), duration_ms: 100, dependencies_scanned: 10, advisories_checked: 5, findings }
+        ScanReport {
+            scan_id: "test".into(),
+            project_name: "test".into(),
+            scanned_at: chrono::Utc::now(),
+            duration_ms: 100,
+            dependencies_scanned: 10,
+            advisories_checked: 5,
+            findings,
+        }
     }
 
     #[test]

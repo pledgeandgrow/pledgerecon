@@ -175,18 +175,27 @@ fn detect_distro(rootfs: &Path) -> LinuxDistro {
     }
 }
 
-fn extract_os_packages(rootfs: &Path, distro: LinuxDistro) -> Result<Vec<OsPackage>, ContainerError> {
+fn extract_os_packages(
+    rootfs: &Path,
+    distro: LinuxDistro,
+) -> Result<Vec<OsPackage>, ContainerError> {
     match distro {
         LinuxDistro::Debian | LinuxDistro::Ubuntu => extract_dpkg_packages(rootfs, distro),
         LinuxDistro::Alpine => extract_apk_packages(rootfs, distro),
-        LinuxDistro::Centos | LinuxDistro::Rhel | LinuxDistro::Fedora | LinuxDistro::AmazonLinux => {
+        LinuxDistro::Centos
+        | LinuxDistro::Rhel
+        | LinuxDistro::Fedora
+        | LinuxDistro::AmazonLinux => {
             Ok(Vec::new()) // RPM requires BerkeleyDB reader
         }
         LinuxDistro::Unknown => Ok(Vec::new()),
     }
 }
 
-fn extract_dpkg_packages(rootfs: &Path, distro: LinuxDistro) -> Result<Vec<OsPackage>, ContainerError> {
+fn extract_dpkg_packages(
+    rootfs: &Path,
+    distro: LinuxDistro,
+) -> Result<Vec<OsPackage>, ContainerError> {
     let status_file = rootfs.join("var/lib/dpkg/status");
     let content = match std::fs::read_to_string(&status_file) {
         Ok(c) => c,
@@ -216,12 +225,21 @@ fn extract_dpkg_packages(rootfs: &Path, distro: LinuxDistro) -> Result<Vec<OsPac
         }
     }
     if !name.is_empty() {
-        packages.push(OsPackage { name, version, distro, manager: "dpkg".to_string(), arch });
+        packages.push(OsPackage {
+            name,
+            version,
+            distro,
+            manager: "dpkg".to_string(),
+            arch,
+        });
     }
     Ok(packages)
 }
 
-fn extract_apk_packages(rootfs: &Path, distro: LinuxDistro) -> Result<Vec<OsPackage>, ContainerError> {
+fn extract_apk_packages(
+    rootfs: &Path,
+    distro: LinuxDistro,
+) -> Result<Vec<OsPackage>, ContainerError> {
     let installed_file = rootfs.join("lib/apk/db/installed");
     let content = match std::fs::read_to_string(&installed_file) {
         Ok(c) => c,
@@ -251,7 +269,13 @@ fn extract_apk_packages(rootfs: &Path, distro: LinuxDistro) -> Result<Vec<OsPack
         }
     }
     if !name.is_empty() {
-        packages.push(OsPackage { name, version, distro, manager: "apk".to_string(), arch });
+        packages.push(OsPackage {
+            name,
+            version,
+            distro,
+            manager: "apk".to_string(),
+            arch,
+        });
     }
     Ok(packages)
 }
@@ -261,20 +285,21 @@ fn extract_app_dependencies(rootfs: &Path) -> Vec<AppDependency> {
 
     // npm package-lock.json
     let npm_lock = rootfs.join("app/package-lock.json");
-    if let Ok(content) = std::fs::read_to_string(&npm_lock) {
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-            if let Some(packages) = json.get("packages").and_then(|p| p.as_object()) {
-                for (name, info) in packages {
-                    if name.is_empty() { continue; }
-                    if let Some(version) = info.get("version").and_then(|v| v.as_str()) {
-                        deps.push(AppDependency {
-                            name: name.trim_start_matches("node_modules/").to_string(),
-                            version: version.to_string(),
-                            ecosystem: "npm".to_string(),
-                            manifest_path: Some("app/package-lock.json".to_string()),
-                        });
-                    }
-                }
+    if let Ok(content) = std::fs::read_to_string(&npm_lock)
+        && let Ok(json) = serde_json::from_str::<serde_json::Value>(&content)
+        && let Some(packages) = json.get("packages").and_then(|p| p.as_object())
+    {
+        for (name, info) in packages {
+            if name.is_empty() {
+                continue;
+            }
+            if let Some(version) = info.get("version").and_then(|v| v.as_str()) {
+                deps.push(AppDependency {
+                    name: name.trim_start_matches("node_modules/").to_string(),
+                    version: version.to_string(),
+                    ecosystem: "npm".to_string(),
+                    manifest_path: Some("app/package-lock.json".to_string()),
+                });
             }
         }
     }
@@ -360,8 +385,12 @@ pub fn parse_dockerfile_layers(dockerfile_content: &str) -> Vec<String> {
         .lines()
         .filter(|line| {
             let t = line.trim();
-            t.starts_with("RUN ") || t.starts_with("COPY ") || t.starts_with("ADD ")
-                || t.starts_with("ENV ") || t.starts_with("WORKDIR ") || t.starts_with("FROM ")
+            t.starts_with("RUN ")
+                || t.starts_with("COPY ")
+                || t.starts_with("ADD ")
+                || t.starts_with("ENV ")
+                || t.starts_with("WORKDIR ")
+                || t.starts_with("FROM ")
         })
         .map(|line| line.trim().to_string())
         .collect()
@@ -386,16 +415,24 @@ pub fn identify_base_image(dockerfile_content: &str) -> Option<BaseImageInfo> {
         let trimmed = line.trim();
         if let Some(rest) = trimmed.strip_prefix("FROM ") {
             let parts: Vec<&str> = rest.split_whitespace().collect();
-            if parts.is_empty() { return None; }
+            if parts.is_empty() {
+                return None;
+            }
 
             let image_ref = parts[0];
             let (image_part, digest) = if let Some(at_idx) = image_ref.find('@') {
-                (image_ref[..at_idx].to_string(), Some(image_ref[at_idx + 1..].to_string()))
+                (
+                    image_ref[..at_idx].to_string(),
+                    Some(image_ref[at_idx + 1..].to_string()),
+                )
             } else {
                 (image_ref.to_string(), None)
             };
             let (image, tag) = if let Some(idx) = image_part.rfind(':') {
-                (image_part[..idx].to_string(), Some(image_part[idx + 1..].to_string()))
+                (
+                    image_part[..idx].to_string(),
+                    Some(image_part[idx + 1..].to_string()),
+                )
             } else {
                 (image_part, None)
             };
@@ -420,7 +457,10 @@ pub fn identify_base_image(dockerfile_content: &str) -> Option<BaseImageInfo> {
 pub fn separate_base_and_app_vulnerabilities<'a>(
     scan_result: &'a ContainerScanResult,
     base_image_packages: &'a [String],
-) -> (Vec<&'a ContainerVulnerability>, Vec<&'a ContainerVulnerability>) {
+) -> (
+    Vec<&'a ContainerVulnerability>,
+    Vec<&'a ContainerVulnerability>,
+) {
     scan_result
         .vulnerabilities
         .iter()
@@ -480,8 +520,16 @@ pub fn analyze_dockerfile(content: &str) -> Vec<DockerfileIssue> {
         if upper.starts_with("ENV ") {
             let env_part = trimmed.strip_prefix("ENV ").unwrap_or("");
             let secret_patterns = [
-                "PASSWORD", "PASSWD", "SECRET", "API_KEY", "APIKEY", "TOKEN",
-                "PRIVATE_KEY", "ACCESS_KEY", "AWS_SECRET", "GITHUB_TOKEN",
+                "PASSWORD",
+                "PASSWD",
+                "SECRET",
+                "API_KEY",
+                "APIKEY",
+                "TOKEN",
+                "PRIVATE_KEY",
+                "ACCESS_KEY",
+                "AWS_SECRET",
+                "GITHUB_TOKEN",
             ];
             for pattern in &secret_patterns {
                 if env_part.to_uppercase().contains(pattern) {
@@ -509,7 +557,9 @@ pub fn analyze_dockerfile(content: &str) -> Vec<DockerfileIssue> {
         }
 
         // ADD with URL.
-        if upper.starts_with("ADD ") && (trimmed.contains("http://") || trimmed.contains("https://")) {
+        if upper.starts_with("ADD ")
+            && (trimmed.contains("http://") || trimmed.contains("https://"))
+        {
             issues.push(DockerfileIssue {
                 rule_id: "DF005".to_string(),
                 message: "Use COPY instead of ADD for remote URLs".to_string(),
@@ -523,23 +573,25 @@ pub fn analyze_dockerfile(content: &str) -> Vec<DockerfileIssue> {
         if upper.starts_with("EXPOSE ") {
             let ports = trimmed.strip_prefix("EXPOSE ").unwrap_or("");
             for port_part in ports.split_whitespace() {
-                if let Ok(port) = port_part.split('/').next().unwrap_or("0").parse::<u16>() {
-                    if port < 1024 {
-                        issues.push(DockerfileIssue {
-                            rule_id: "DF006".to_string(),
-                            message: format!("Exposing privileged port {}", port),
-                            severity: DockerfileIssueSeverity::Info,
-                            line: line_num,
-                            instruction: trimmed.to_string(),
-                        });
-                    }
+                if let Ok(port) = port_part.split('/').next().unwrap_or("0").parse::<u16>()
+                    && port < 1024
+                {
+                    issues.push(DockerfileIssue {
+                        rule_id: "DF006".to_string(),
+                        message: format!("Exposing privileged port {}", port),
+                        severity: DockerfileIssueSeverity::Info,
+                        line: line_num,
+                        instruction: trimmed.to_string(),
+                    });
                 }
             }
         }
     }
 
     // Missing USER instruction.
-    let has_user = content.lines().any(|l| l.trim().to_uppercase().starts_with("USER "));
+    let has_user = content
+        .lines()
+        .any(|l| l.trim().to_uppercase().starts_with("USER "));
     if !has_user {
         issues.push(DockerfileIssue {
             rule_id: "DF007".to_string(),
@@ -551,7 +603,9 @@ pub fn analyze_dockerfile(content: &str) -> Vec<DockerfileIssue> {
     }
 
     // Missing HEALTHCHECK.
-    let has_healthcheck = content.lines().any(|l| l.trim().to_uppercase().starts_with("HEALTHCHECK "));
+    let has_healthcheck = content
+        .lines()
+        .any(|l| l.trim().to_uppercase().starts_with("HEALTHCHECK "));
     if !has_healthcheck {
         issues.push(DockerfileIssue {
             rule_id: "DF008".to_string(),
@@ -563,16 +617,16 @@ pub fn analyze_dockerfile(content: &str) -> Vec<DockerfileIssue> {
     }
 
     // :latest tag.
-    if let Some(base) = identify_base_image(content) {
-        if base.tag.as_deref() == Some("latest") {
-            issues.push(DockerfileIssue {
-                rule_id: "DF009".to_string(),
-                message: "Base image uses :latest tag — pin to a specific version".to_string(),
-                severity: DockerfileIssueSeverity::Warning,
-                line: 1,
-                instruction: base.from_line,
-            });
-        }
+    if let Some(base) = identify_base_image(content)
+        && base.tag.as_deref() == Some("latest")
+    {
+        issues.push(DockerfileIssue {
+            rule_id: "DF009".to_string(),
+            message: "Base image uses :latest tag — pin to a specific version".to_string(),
+            severity: DockerfileIssueSeverity::Warning,
+            line: 1,
+            instruction: base.from_line,
+        });
     }
 
     issues
@@ -630,7 +684,8 @@ pub fn scan_k8s_manifest(yaml_content: &str) -> Result<Vec<K8sIssue>, ContainerE
                     }
                 }
                 "Deployment" | "StatefulSet" | "DaemonSet" | "ReplicaSet" | "Job" | "CronJob" => {
-                    if let Some(spec) = doc.get("spec")
+                    if let Some(spec) = doc
+                        .get("spec")
                         .and_then(|s| s.get("template"))
                         .and_then(|t| t.get("spec"))
                     {
@@ -658,7 +713,10 @@ fn scan_container_spec(
     };
 
     for container in containers {
-        let cname = container.get("name").and_then(|n| n.as_str()).unwrap_or("unknown");
+        let cname = container
+            .get("name")
+            .and_then(|n| n.as_str())
+            .unwrap_or("unknown");
 
         // KSV001: Runs as root.
         let run_as_non_root = spec
@@ -717,7 +775,10 @@ fn scan_container_spec(
         if let Some(volumes) = spec.get("volumes").and_then(|v| v.as_sequence()) {
             for vol in volumes {
                 if vol.get("hostPath").is_some() {
-                    let vname = vol.get("name").and_then(|n| n.as_str()).unwrap_or("unknown");
+                    let vname = vol
+                        .get("name")
+                        .and_then(|n| n.as_str())
+                        .unwrap_or("unknown");
                     issues.push(K8sIssue {
                         rule_id: "KSV014".to_string(),
                         message: format!("hostPath volume '{}' mounted", vname),
@@ -731,7 +792,10 @@ fn scan_container_spec(
         }
 
         // KSV016: No resource limits.
-        let has_limits = container.get("resources").and_then(|r| r.get("limits")).is_some();
+        let has_limits = container
+            .get("resources")
+            .and_then(|r| r.get("limits"))
+            .is_some();
         if !has_limits {
             issues.push(K8sIssue {
                 rule_id: "KSV016".to_string(),
@@ -802,20 +866,21 @@ pub fn scan_helm_chart(chart_dir: &Path) -> Result<Vec<HelmIssue>, ContainerErro
             }
 
             let content = std::fs::read_to_string(path)?;
-            let rel_path = path.strip_prefix(chart_dir).unwrap_or(path).to_string_lossy().to_string();
+            let rel_path = path
+                .strip_prefix(chart_dir)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .to_string();
 
-            match scan_k8s_manifest(&content) {
-                Ok(k8s_issues) => {
-                    for issue in k8s_issues {
-                        issues.push(HelmIssue {
-                            rule_id: issue.rule_id,
-                            message: issue.message,
-                            severity: issue.severity,
-                            template_file: rel_path.clone(),
-                        });
-                    }
+            if let Ok(k8s_issues) = scan_k8s_manifest(&content) {
+                for issue in k8s_issues {
+                    issues.push(HelmIssue {
+                        rule_id: issue.rule_id,
+                        message: issue.message,
+                        severity: issue.severity,
+                        template_file: rel_path.clone(),
+                    });
                 }
-                Err(_) => {}
             }
         }
     }
@@ -862,7 +927,11 @@ pub fn scan_terraform(content: &str, filename: &str) -> Vec<TerraformIssue> {
             let parts: Vec<&str> = rest.split_whitespace().collect();
             if parts.len() >= 2 {
                 current_resource_type = parts[0].trim_matches('"').to_string();
-                current_resource_name = parts[1].trim_matches('"').trim_end_matches('{').trim().to_string();
+                current_resource_name = parts[1]
+                    .trim_matches('"')
+                    .trim_end_matches('{')
+                    .trim()
+                    .to_string();
             }
         }
 
@@ -873,71 +942,79 @@ pub fn scan_terraform(content: &str, filename: &str) -> Vec<TerraformIssue> {
         let line_num = i + 1;
 
         // S3 bucket public access.
-        if current_resource_type.contains("s3_bucket") {
-            if trimmed.contains("acl") && (trimmed.contains("\"public-read\"") || trimmed.contains("\"public-read-write\"")) {
-                issues.push(TerraformIssue {
-                    rule_id: "TF002".to_string(),
-                    message: "S3 bucket has public-read or public-read-write ACL".to_string(),
-                    severity: TerraformIssueSeverity::Critical,
-                    resource_type: current_resource_type.clone(),
-                    resource_name: current_resource_name.clone(),
-                    file: filename.to_string(),
-                    line: Some(line_num),
-                });
-            }
+        if current_resource_type.contains("s3_bucket")
+            && trimmed.contains("acl")
+            && (trimmed.contains("\"public-read\"") || trimmed.contains("\"public-read-write\""))
+        {
+            issues.push(TerraformIssue {
+                rule_id: "TF002".to_string(),
+                message: "S3 bucket has public-read or public-read-write ACL".to_string(),
+                severity: TerraformIssueSeverity::Critical,
+                resource_type: current_resource_type.clone(),
+                resource_name: current_resource_name.clone(),
+                file: filename.to_string(),
+                line: Some(line_num),
+            });
         }
 
         // Security group 0.0.0.0/0.
-        if current_resource_type.contains("security_group") {
-            if trimmed.contains("0.0.0.0/0") {
-                issues.push(TerraformIssue {
-                    rule_id: "TF003".to_string(),
-                    message: "Security group rule allows traffic from 0.0.0.0/0".to_string(),
-                    severity: TerraformIssueSeverity::High,
-                    resource_type: current_resource_type.clone(),
-                    resource_name: current_resource_name.clone(),
-                    file: filename.to_string(),
-                    line: Some(line_num),
-                });
-            }
+        if current_resource_type.contains("security_group") && trimmed.contains("0.0.0.0/0") {
+            issues.push(TerraformIssue {
+                rule_id: "TF003".to_string(),
+                message: "Security group rule allows traffic from 0.0.0.0/0".to_string(),
+                severity: TerraformIssueSeverity::High,
+                resource_type: current_resource_type.clone(),
+                resource_name: current_resource_name.clone(),
+                file: filename.to_string(),
+                line: Some(line_num),
+            });
         }
 
         // Unencrypted DB instance.
-        if current_resource_type.contains("db_instance") {
-            if trimmed.contains("storage_encrypted") && trimmed.contains("false") {
-                issues.push(TerraformIssue {
-                    rule_id: "TF004".to_string(),
-                    message: "Database instance storage is not encrypted".to_string(),
-                    severity: TerraformIssueSeverity::High,
-                    resource_type: current_resource_type.clone(),
-                    resource_name: current_resource_name.clone(),
-                    file: filename.to_string(),
-                    line: Some(line_num),
-                });
-            }
+        if current_resource_type.contains("db_instance")
+            && trimmed.contains("storage_encrypted")
+            && trimmed.contains("false")
+        {
+            issues.push(TerraformIssue {
+                rule_id: "TF004".to_string(),
+                message: "Database instance storage is not encrypted".to_string(),
+                severity: TerraformIssueSeverity::High,
+                resource_type: current_resource_type.clone(),
+                resource_name: current_resource_name.clone(),
+                file: filename.to_string(),
+                line: Some(line_num),
+            });
         }
 
         // Unencrypted EBS volume.
-        if current_resource_type == "aws_ebs_volume" || current_resource_type == "aws_instance" {
-            if trimmed.contains("encrypted") && trimmed.contains("false") {
-                issues.push(TerraformIssue {
-                    rule_id: "TF005".to_string(),
-                    message: "EBS volume is not encrypted".to_string(),
-                    severity: TerraformIssueSeverity::Medium,
-                    resource_type: current_resource_type.clone(),
-                    resource_name: current_resource_name.clone(),
-                    file: filename.to_string(),
-                    line: Some(line_num),
-                });
-            }
+        if (current_resource_type == "aws_ebs_volume" || current_resource_type == "aws_instance")
+            && trimmed.contains("encrypted")
+            && trimmed.contains("false")
+        {
+            issues.push(TerraformIssue {
+                rule_id: "TF005".to_string(),
+                message: "EBS volume is not encrypted".to_string(),
+                severity: TerraformIssueSeverity::Medium,
+                resource_type: current_resource_type.clone(),
+                resource_name: current_resource_name.clone(),
+                file: filename.to_string(),
+                line: Some(line_num),
+            });
         }
 
         // Hardcoded secrets.
-        let secret_patterns = ["password", "secret_key", "access_key", "private_key", "token"];
+        let secret_patterns = [
+            "password",
+            "secret_key",
+            "access_key",
+            "private_key",
+            "token",
+        ];
         for pattern in &secret_patterns {
             if trimmed.to_lowercase().contains(pattern) && trimmed.contains('=') {
                 let value_part = trimmed.split('=').nth(1).unwrap_or("");
-                if !value_part.contains("var.") && !value_part.contains("data.")
+                if !value_part.contains("var.")
+                    && !value_part.contains("data.")
                     && !value_part.is_empty()
                     && (value_part.contains('"') || value_part.contains('\''))
                 {
@@ -972,8 +1049,8 @@ pub struct CloudFormationIssue {
 
 /// Scan a CloudFormation template (JSON/YAML) for AWS misconfigurations.
 pub fn scan_cloudformation(template: &str) -> Result<Vec<CloudFormationIssue>, ContainerError> {
-    let value: serde_yaml::Value = serde_yaml::from_str(template)
-        .map_err(|e| ContainerError::Yaml(e.to_string()))?;
+    let value: serde_yaml::Value =
+        serde_yaml::from_str(template).map_err(|e| ContainerError::Yaml(e.to_string()))?;
 
     let mut issues = Vec::new();
 
@@ -993,54 +1070,61 @@ pub fn scan_cloudformation(template: &str) -> Result<Vec<CloudFormationIssue>, C
             let properties = resource.get("Properties");
 
             // S3 bucket public access.
-            if resource_type == "AWS::S3::Bucket" {
-                if let Some(props) = properties {
-                    let acl = props.get("AccessControl").and_then(|a| a.as_str());
-                    if acl == Some("PublicReadWrite") || acl == Some("PublicRead") {
-                        issues.push(CloudFormationIssue {
-                            rule_id: "CF001".to_string(),
-                            message: format!("S3 bucket {} has public access control", logical_id_str),
-                            severity: TerraformIssueSeverity::Critical,
-                            resource_type: resource_type.to_string(),
-                            logical_id: logical_id_str.to_string(),
-                        });
-                    }
+            if resource_type == "AWS::S3::Bucket"
+                && let Some(props) = properties
+            {
+                let acl = props.get("AccessControl").and_then(|a| a.as_str());
+                if acl == Some("PublicReadWrite") || acl == Some("PublicRead") {
+                    issues.push(CloudFormationIssue {
+                        rule_id: "CF001".to_string(),
+                        message: format!("S3 bucket {} has public access control", logical_id_str),
+                        severity: TerraformIssueSeverity::Critical,
+                        resource_type: resource_type.to_string(),
+                        logical_id: logical_id_str.to_string(),
+                    });
                 }
             }
 
             // Security group with 0.0.0.0/0.
-            if resource_type == "AWS::EC2::SecurityGroup" {
-                if let Some(props) = properties {
-                    if let Some(ingress) = props.get("SecurityGroupIngress").and_then(|i| i.as_sequence()) {
-                        for rule in ingress {
-                            let cidr = rule.get("CidrIp").and_then(|c| c.as_str());
-                            if cidr == Some("0.0.0.0/0") {
-                                issues.push(CloudFormationIssue {
-                                    rule_id: "CF002".to_string(),
-                                    message: format!("Security group {} allows 0.0.0.0/0", logical_id_str),
-                                    severity: TerraformIssueSeverity::High,
-                                    resource_type: resource_type.to_string(),
-                                    logical_id: logical_id_str.to_string(),
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-
-            // RDS unencrypted.
-            if resource_type == "AWS::RDS::DBInstance" {
-                if let Some(props) = properties {
-                    let encrypted = props.get("StorageEncrypted").and_then(|e| e.as_bool()).unwrap_or(false);
-                    if !encrypted {
+            if resource_type == "AWS::EC2::SecurityGroup"
+                && let Some(props) = properties
+                && let Some(ingress) = props
+                    .get("SecurityGroupIngress")
+                    .and_then(|i| i.as_sequence())
+            {
+                for rule in ingress {
+                    let cidr = rule.get("CidrIp").and_then(|c| c.as_str());
+                    if cidr == Some("0.0.0.0/0") {
                         issues.push(CloudFormationIssue {
-                            rule_id: "CF003".to_string(),
-                            message: format!("RDS instance {} storage is not encrypted", logical_id_str),
+                            rule_id: "CF002".to_string(),
+                            message: format!("Security group {} allows 0.0.0.0/0", logical_id_str),
                             severity: TerraformIssueSeverity::High,
                             resource_type: resource_type.to_string(),
                             logical_id: logical_id_str.to_string(),
                         });
                     }
+                }
+            }
+
+            // RDS unencrypted.
+            if resource_type == "AWS::RDS::DBInstance"
+                && let Some(props) = properties
+            {
+                let encrypted = props
+                    .get("StorageEncrypted")
+                    .and_then(|e| e.as_bool())
+                    .unwrap_or(false);
+                if !encrypted {
+                    issues.push(CloudFormationIssue {
+                        rule_id: "CF003".to_string(),
+                        message: format!(
+                            "RDS instance {} storage is not encrypted",
+                            logical_id_str
+                        ),
+                        severity: TerraformIssueSeverity::High,
+                        resource_type: resource_type.to_string(),
+                        logical_id: logical_id_str.to_string(),
+                    });
                 }
             }
         }
@@ -1106,7 +1190,9 @@ pub struct RegistrySyncResult {
 }
 
 /// Discover images in a registry (simulated — real impl would call registry API).
-pub fn discover_registry_images(config: &RegistryConfig) -> Result<RegistrySyncResult, ContainerError> {
+pub fn discover_registry_images(
+    config: &RegistryConfig,
+) -> Result<RegistrySyncResult, ContainerError> {
     // In a real implementation, this would call the registry v2 API:
     // GET /v2/_catalog  (list repositories)
     // GET /v2/<name>/tags/list  (list tags)
@@ -1117,15 +1203,13 @@ pub fn discover_registry_images(config: &RegistryConfig) -> Result<RegistrySyncR
         .repositories
         .iter()
         .flat_map(|repo| {
-            vec![
-                DiscoveredImage {
-                    registry: config.url.clone(),
-                    repository: repo.clone(),
-                    tag: "latest".to_string(),
-                    digest: format!("sha256:{}", blake3_hash(repo, "latest")),
-                    size_bytes: 0,
-                },
-            ]
+            vec![DiscoveredImage {
+                registry: config.url.clone(),
+                repository: repo.clone(),
+                tag: "latest".to_string(),
+                digest: format!("sha256:{}", blake3_hash(repo, "latest")),
+                size_bytes: 0,
+            }]
         })
         .collect::<Vec<_>>();
 
@@ -1220,8 +1304,14 @@ pub fn verify_attestations(
         attestations.push(Attestation {
             predicate_type,
             statement: raw.clone(),
-            signature: raw.get("signature").and_then(|s| s.as_str()).map(|s| s.to_string()),
-            signer_identity: raw.get("signerIdentity").and_then(|s| s.as_str()).map(|s| s.to_string()),
+            signature: raw
+                .get("signature")
+                .and_then(|s| s.as_str())
+                .map(|s| s.to_string()),
+            signer_identity: raw
+                .get("signerIdentity")
+                .and_then(|s| s.as_str())
+                .map(|s| s.to_string()),
             verified,
         });
     }
@@ -1230,7 +1320,7 @@ pub fn verify_attestations(
         image_ref: image_ref.to_string(),
         attestations,
         has_slsa_provenance: has_slsa,
-        has_sbom: has_sbom,
+        has_sbom,
         has_scan_result: has_scan,
         all_verified,
     })
@@ -1374,9 +1464,15 @@ mod tests {
 
         let result = assign_vulnerabilities_to_layers(&image, &vulns);
         assert_eq!(result[0].layer_index, Some(0));
-        assert_eq!(result[0].layer_command, Some("FROM alpine:3.19".to_string()));
+        assert_eq!(
+            result[0].layer_command,
+            Some("FROM alpine:3.19".to_string())
+        );
         assert_eq!(result[1].layer_index, Some(1));
-        assert_eq!(result[1].layer_command, Some("RUN apk add curl".to_string()));
+        assert_eq!(
+            result[1].layer_command,
+            Some("RUN apk add curl".to_string())
+        );
     }
 
     #[test]
@@ -1454,14 +1550,16 @@ mod tests {
 
     #[test]
     fn test_analyze_dockerfile_latest_tag() {
-        let dockerfile = "FROM node:latest\nUSER node\nHEALTHCHECK CMD curl --fail http://localhost:3000\n";
+        let dockerfile =
+            "FROM node:latest\nUSER node\nHEALTHCHECK CMD curl --fail http://localhost:3000\n";
         let issues = analyze_dockerfile(dockerfile);
         assert!(issues.iter().any(|i| i.rule_id == "DF009"));
     }
 
     #[test]
     fn test_analyze_dockerfile_clean() {
-        let dockerfile = "FROM node:20-slim\nUSER node\nHEALTHCHECK CMD curl --fail http://localhost:3000\n";
+        let dockerfile =
+            "FROM node:20-slim\nUSER node\nHEALTHCHECK CMD curl --fail http://localhost:3000\n";
         let issues = analyze_dockerfile(dockerfile);
         assert!(!issues.iter().any(|i| i.rule_id == "DF007"));
         assert!(!issues.iter().any(|i| i.rule_id == "DF008"));
@@ -1486,7 +1584,11 @@ spec:
         privileged: true
 "#;
         let issues = scan_k8s_manifest(yaml).unwrap();
-        assert!(issues.iter().any(|i| i.rule_id == "KSV011" && i.severity == K8sIssueSeverity::Critical));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.rule_id == "KSV011" && i.severity == K8sIssueSeverity::Critical)
+        );
     }
 
     #[test]
@@ -1525,7 +1627,11 @@ spec:
             privileged: true
 "#;
         let issues = scan_k8s_manifest(yaml).unwrap();
-        assert!(issues.iter().any(|i| i.resource_kind == "Deployment" && i.rule_id == "KSV011"));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.resource_kind == "Deployment" && i.rule_id == "KSV011")
+        );
     }
 
     #[test]
@@ -1572,7 +1678,11 @@ spec:
           memory: "128Mi"
 "#;
         let issues = scan_k8s_manifest(yaml).unwrap();
-        assert!(issues.is_empty(), "Expected no issues for secure pod, got: {:?}", issues);
+        assert!(
+            issues.is_empty(),
+            "Expected no issues for secure pod, got: {:?}",
+            issues
+        );
     }
 
     // Goal 106 tests
@@ -1589,7 +1699,11 @@ spec:
         let tmp = tempfile::tempdir().unwrap();
         let chart_dir = tmp.path();
 
-        std::fs::write(chart_dir.join("Chart.yaml"), "apiVersion: v2\nname: test\nversion: 0.1.0\n").unwrap();
+        std::fs::write(
+            chart_dir.join("Chart.yaml"),
+            "apiVersion: v2\nname: test\nversion: 0.1.0\n",
+        )
+        .unwrap();
 
         std::fs::create_dir_all(chart_dir.join("templates")).unwrap();
         std::fs::write(
@@ -1608,11 +1722,16 @@ spec:
           securityContext:
             privileged: true
 "#,
-        ).unwrap();
+        )
+        .unwrap();
 
         let issues = scan_helm_chart(chart_dir).unwrap();
         assert!(issues.iter().any(|i| i.rule_id == "KSV011"));
-        assert!(issues.iter().any(|i| i.template_file.contains("deployment.yaml")));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.template_file.contains("deployment.yaml"))
+        );
     }
 
     // Goal 107 tests
@@ -1788,12 +1907,10 @@ Resources:
 
     #[test]
     fn test_verify_attestations_missing_sbom() {
-        let attestations = vec![
-            serde_json::json!({
-                "predicateType": "https://slsa.dev/provenance/v1",
-                "verified": true
-            }),
-        ];
+        let attestations = vec![serde_json::json!({
+            "predicateType": "https://slsa.dev/provenance/v1",
+            "verified": true
+        })];
 
         let result = verify_attestations("myapp:v1", &attestations).unwrap();
         assert!(result.has_slsa_provenance);
@@ -1803,12 +1920,10 @@ Resources:
 
     #[test]
     fn test_verify_attestations_unverified() {
-        let attestations = vec![
-            serde_json::json!({
-                "predicateType": "https://slsa.dev/provenance/v1",
-                "verified": false
-            }),
-        ];
+        let attestations = vec![serde_json::json!({
+            "predicateType": "https://slsa.dev/provenance/v1",
+            "verified": false
+        })];
 
         let result = verify_attestations("myapp:v1", &attestations).unwrap();
         assert!(!result.all_verified);

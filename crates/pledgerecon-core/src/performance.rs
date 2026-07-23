@@ -12,7 +12,7 @@
 //! - WASM-based scan engine (Goal 85)
 
 use crate::advisory::{Advisory, AdvisoryDatabase};
-use crate::dependency::{build_dependency_graph, DependencyGraph};
+use crate::dependency::{DependencyGraph, build_dependency_graph};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -70,10 +70,7 @@ fn manifest_hash(path: &Path) -> Option<String> {
 ///
 /// Compares current manifest file hashes against the stored state.
 /// If any manifest changed, only those need to be re-parsed.
-pub fn detect_changed_manifests(
-    root: &Path,
-    previous_state: &ScanState,
-) -> IncrementalResult {
+pub fn detect_changed_manifests(root: &Path, previous_state: &ScanState) -> IncrementalResult {
     let mut changed = Vec::new();
     let mut unchanged = Vec::new();
 
@@ -94,8 +91,8 @@ pub fn detect_changed_manifests(
     }
 
     // If no previous state, need full scan.
-    let needs_full_scan = previous_state.manifest_hashes.is_empty()
-        || previous_state.last_scan.is_none();
+    let needs_full_scan =
+        previous_state.manifest_hashes.is_empty() || previous_state.last_scan.is_none();
 
     IncrementalResult {
         changed_manifests: changed,
@@ -105,23 +102,26 @@ pub fn detect_changed_manifests(
 }
 
 /// Save scan state for incremental scanning.
-pub fn save_scan_state(root: &Path, graph: &DependencyGraph) -> Result<ScanState, PerformanceError> {
+pub fn save_scan_state(
+    root: &Path,
+    graph: &DependencyGraph,
+) -> Result<ScanState, PerformanceError> {
     let mut manifest_hashes = HashMap::new();
     // Hash manifests from dependencies.
     for dep in graph.dependencies.values() {
         let manifest = &dep.manifest_path;
-        if !manifest_hashes.contains_key(manifest) {
-            if let Some(hash) = manifest_hash(manifest) {
-                manifest_hashes.insert(manifest.clone(), hash);
-            }
+        if !manifest_hashes.contains_key(manifest)
+            && let Some(hash) = manifest_hash(manifest)
+        {
+            manifest_hashes.insert(manifest.clone(), hash);
         }
     }
     // Also hash all discovered manifests (even if no deps).
     for manifest in discover_manifests(root) {
-        if !manifest_hashes.contains_key(&manifest) {
-            if let Some(hash) = manifest_hash(&manifest) {
-                manifest_hashes.insert(manifest, hash);
-            }
+        if !manifest_hashes.contains_key(&manifest)
+            && let Some(hash) = manifest_hash(&manifest)
+        {
+            manifest_hashes.insert(manifest, hash);
         }
     }
 
@@ -152,9 +152,17 @@ pub fn load_scan_state(root: &Path) -> Result<ScanState, PerformanceError> {
 /// Discover manifest files in a project root.
 fn discover_manifests(root: &Path) -> Vec<PathBuf> {
     let manifest_names = [
-        "Cargo.toml", "package.json", "go.mod", "requirements.txt",
-        "pyproject.toml", "pubspec.yaml", "pom.xml", "build.gradle",
-        "Gemfile", "composer.json", "packages.config",
+        "Cargo.toml",
+        "package.json",
+        "go.mod",
+        "requirements.txt",
+        "pyproject.toml",
+        "pubspec.yaml",
+        "pom.xml",
+        "build.gradle",
+        "Gemfile",
+        "composer.json",
+        "packages.config",
     ];
     let mut found = Vec::new();
     for name in &manifest_names {
@@ -185,13 +193,11 @@ pub fn fetch_advisories_parallel(
     pool.install(|| {
         packages
             .par_iter()
-            .filter_map(|pkg| {
-                match fetch_fn(pkg) {
-                    Ok(advisories) => Some((pkg.clone(), advisories)),
-                    Err(e) => {
-                        tracing::warn!("Failed to fetch advisories for {}: {}", pkg, e);
-                        None
-                    }
+            .filter_map(|pkg| match fetch_fn(pkg) {
+                Ok(advisories) => Some((pkg.clone(), advisories)),
+                Err(e) => {
+                    tracing::warn!("Failed to fetch advisories for {}: {}", pkg, e);
+                    None
                 }
             })
             .collect()
@@ -484,8 +490,12 @@ pub struct TimeoutConfig {
     pub reachability_timeout_secs: u64,
 }
 
-fn default_fetch_timeout() -> u64 { 120 }
-fn default_reachability_timeout() -> u64 { 300 }
+fn default_fetch_timeout() -> u64 {
+    120
+}
+fn default_reachability_timeout() -> u64 {
+    300
+}
 
 impl Default for TimeoutConfig {
     fn default() -> Self {
@@ -716,7 +726,8 @@ VOLUME ["/cache"]
 WORKDIR /repo
 ENTRYPOINT ["pledgerecon"]
 CMD ["scan", "."]
-"#.to_string()
+"#
+    .to_string()
 }
 
 /// Generate .dockerignore content.
@@ -728,7 +739,8 @@ node_modules/
 dist/
 *.md
 !README.md
-"#.to_string()
+"#
+    .to_string()
 }
 
 // ─── Goal 85: WASM-Based Scan Engine ────────────────────────────────────────
@@ -751,7 +763,8 @@ opt-level = "z"
 lto = true
 codegen-units = 1
 strip = true
-"#.to_string()
+"#
+    .to_string()
 }
 
 /// Generate a JavaScript wrapper for browser-based scanning (Goal 85).
@@ -796,7 +809,8 @@ export class PledgeRecon {
     return new TextDecoder().decode(memory.subarray(ptr, end));
   }
 }
-"#.to_string()
+"#
+    .to_string()
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -810,7 +824,11 @@ mod tests {
         let dir = std::env::temp_dir().join("pledgerecon_incremental_scan_test");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("package.json"), r#"{"name":"test","version":"1.0.0"}"#).unwrap();
+        std::fs::write(
+            dir.join("package.json"),
+            r#"{"name":"test","version":"1.0.0"}"#,
+        )
+        .unwrap();
 
         // Empty previous state → needs full scan.
         let state = ScanState::default();
@@ -827,7 +845,11 @@ mod tests {
         assert!(!result.unchanged_manifests.is_empty());
 
         // Modify manifest → should detect change.
-        std::fs::write(dir.join("package.json"), r#"{"name":"test","version":"2.0.0"}"#).unwrap();
+        std::fs::write(
+            dir.join("package.json"),
+            r#"{"name":"test","version":"2.0.0"}"#,
+        )
+        .unwrap();
         let result = detect_changed_manifests(&dir, &state);
         assert!(!result.changed_manifests.is_empty());
 
@@ -983,8 +1005,16 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("packages/frontend")).unwrap();
         std::fs::create_dir_all(dir.join("packages/backend")).unwrap();
-        std::fs::write(dir.join("packages/frontend/package.json"), r#"{"name":"frontend"}"#).unwrap();
-        std::fs::write(dir.join("packages/backend/Cargo.toml"), "[package]\nname = \"backend\"\nversion = \"0.1.0\"").unwrap();
+        std::fs::write(
+            dir.join("packages/frontend/package.json"),
+            r#"{"name":"frontend"}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("packages/backend/Cargo.toml"),
+            "[package]\nname = \"backend\"\nversion = \"0.1.0\"",
+        )
+        .unwrap();
 
         let subprojects = discover_subprojects(&dir);
         assert!(subprojects.len() >= 2);

@@ -323,15 +323,15 @@ pub fn build_github_check(report: &ScanReport) -> CheckOutput {
                 .cvss_score
                 .map(|s| s.to_string())
                 .unwrap_or("N/A".to_string()),
-            finding
-                .fix_version
-                .as_deref()
-                .unwrap_or("not available"),
+            finding.fix_version.as_deref().unwrap_or("not available"),
             finding.reachability
         );
 
         if !finding.call_chain.is_empty() {
-            raw_details.push_str(&format!("\n**Call chain:** `{}`", finding.call_chain.join("` → `")));
+            raw_details.push_str(&format!(
+                "\n**Call chain:** `{}`",
+                finding.call_chain.join("` → `")
+            ));
         }
         if let Some(ref explanation) = finding.triage_explanation {
             raw_details.push_str(&format!("\n**Triage:** {}", explanation));
@@ -430,7 +430,10 @@ pub fn generate_autofix_suggestions(report: &ScanReport) -> Vec<AutoFixSuggestio
             let key = format!("{}@{}", finding.package, fix_version);
             if seen.contains(&key) {
                 // Merge advisory ID into existing suggestion.
-                if let Some(s) = suggestions.iter_mut().find(|s| s.package == finding.package && s.fixed_version == *fix_version) {
+                if let Some(s) = suggestions
+                    .iter_mut()
+                    .find(|s| s.package == finding.package && s.fixed_version == *fix_version)
+                {
                     s.advisory_ids.push(finding.advisory_id.clone());
                     if finding.severity > s.severity {
                         s.severity = finding.severity;
@@ -464,7 +467,10 @@ pub fn generate_autofix_pr_body(suggestions: &[AutoFixSuggestion]) -> String {
     body.push_str(&format!(
         "This PR upgrades {} package(s) to fix {} vulnerability advisory(ies).\n\n",
         suggestions.len(),
-        suggestions.iter().map(|s| s.advisory_ids.len()).sum::<usize>()
+        suggestions
+            .iter()
+            .map(|s| s.advisory_ids.len())
+            .sum::<usize>()
     ));
 
     body.push_str("| Package | Current | Fixed | Severity | Advisories |\n|---|---|---|---|---|\n");

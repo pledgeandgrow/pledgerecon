@@ -281,7 +281,8 @@ pub fn generate_cis_report(report: &ScanReport) -> CisComplianceReport {
     controls.push(CisControl {
         control_id: "CIS-1.1".into(),
         title: "Vulnerability scanning performed".into(),
-        description: "Ensure vulnerability scanning is performed on all software components.".into(),
+        description: "Ensure vulnerability scanning is performed on all software components."
+            .into(),
         section: "Initial Assessment".into(),
         status: ComplianceStatus::Compliant,
     });
@@ -327,7 +328,10 @@ pub fn generate_cis_report(report: &ScanReport) -> CisComplianceReport {
         status: ComplianceStatus::Compliant,
     });
 
-    let compliant_count = controls.iter().filter(|c| c.status == ComplianceStatus::Compliant).count();
+    let compliant_count = controls
+        .iter()
+        .filter(|c| c.status == ComplianceStatus::Compliant)
+        .count();
     let non_compliant_count = controls
         .iter()
         .filter(|c| c.status == ComplianceStatus::NonCompliant)
@@ -381,7 +385,10 @@ pub fn generate_soc2_report(report: &ScanReport, organization: &str) -> Soc2Repo
         category: "Security".into(),
         description: "Detection and monitoring of vulnerabilities".into(),
         status: ComplianceStatus::Compliant,
-        evidence: format!("Scanned {} dependencies against advisory database", report.dependencies_scanned),
+        evidence: format!(
+            "Scanned {} dependencies against advisory database",
+            report.dependencies_scanned
+        ),
     });
 
     let has_blocking = report.findings.iter().any(|f| {
@@ -397,15 +404,28 @@ pub fn generate_soc2_report(report: &ScanReport, organization: &str) -> Soc2Repo
         } else {
             ComplianceStatus::Compliant
         },
-        evidence: format!("{} findings detected, {} actionable", report.findings.len(), report.findings.iter().filter(|f| f.status != FindingStatus::FalsePositive).count()),
+        evidence: format!(
+            "{} findings detected, {} actionable",
+            report.findings.len(),
+            report
+                .findings
+                .iter()
+                .filter(|f| f.status != FindingStatus::FalsePositive)
+                .count()
+        ),
     });
 
     // Availability.
     controls.push(Soc2Control {
         criteria_id: "A1.2".into(),
         category: "Availability".into(),
-        description: "Environmental protection — no critical vulnerabilities affecting availability".into(),
-        status: if report.findings.iter().any(|f| f.severity == VulnerabilitySeverity::Critical) {
+        description:
+            "Environmental protection — no critical vulnerabilities affecting availability".into(),
+        status: if report
+            .findings
+            .iter()
+            .any(|f| f.severity == VulnerabilitySeverity::Critical)
+        {
             ComplianceStatus::NonCompliant
         } else {
             ComplianceStatus::Compliant
@@ -422,8 +442,15 @@ pub fn generate_soc2_report(report: &ScanReport, organization: &str) -> Soc2Repo
         evidence: "No data exposure vulnerabilities detected".into(),
     });
 
-    let categories: Vec<String> = controls.iter().map(|c| c.category.clone()).collect::<std::collections::HashSet<_>>().into_iter().collect();
-    let all_compliant = controls.iter().all(|c| c.status == ComplianceStatus::Compliant);
+    let categories: Vec<String> = controls
+        .iter()
+        .map(|c| c.category.clone())
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    let all_compliant = controls
+        .iter()
+        .all(|c| c.status == ComplianceStatus::Compliant);
 
     Soc2Report {
         organization: organization.to_string(),
@@ -477,17 +504,21 @@ pub fn generate_ssdf_report(report: &ScanReport) -> SsdfReport {
         SsdfPractice {
             practice_id: "PS.1".into(),
             practice_name: "Protect Software".into(),
-            description: "Protect all software components from tampering and unauthorized access.".into(),
+            description: "Protect all software components from tampering and unauthorized access."
+                .into(),
             tasks: vec![
                 SsdfTask {
                     task_id: "PS.1.1".into(),
-                    description: "Store all source code and associated dependencies in secure repositories.".into(),
+                    description:
+                        "Store all source code and associated dependencies in secure repositories."
+                            .into(),
                     status: ComplianceStatus::Compliant,
                     evidence: "Dependencies tracked in manifest files".into(),
                 },
                 SsdfTask {
                     task_id: "PS.1.2".into(),
-                    description: "Protect code integrity using version control and access controls.".into(),
+                    description:
+                        "Protect code integrity using version control and access controls.".into(),
                     status: ComplianceStatus::Compliant,
                     evidence: "Manifest files under version control".into(),
                 },
@@ -500,13 +531,19 @@ pub fn generate_ssdf_report(report: &ScanReport) -> SsdfReport {
             tasks: vec![
                 SsdfTask {
                     task_id: "PS.2.1".into(),
-                    description: "Meet organization-defined security standards for software.".into(),
-                    status: if has_high { ComplianceStatus::NonCompliant } else { ComplianceStatus::Compliant },
+                    description: "Meet organization-defined security standards for software."
+                        .into(),
+                    status: if has_high {
+                        ComplianceStatus::NonCompliant
+                    } else {
+                        ComplianceStatus::Compliant
+                    },
                     evidence: format!("{} findings detected", report.findings.len()),
                 },
                 SsdfTask {
                     task_id: "PS.2.2".into(),
-                    description: "Implement security controls in software architecture and design.".into(),
+                    description: "Implement security controls in software architecture and design."
+                        .into(),
                     status: ComplianceStatus::Compliant,
                     evidence: "Reachability analysis performed".into(),
                 },
@@ -519,14 +556,21 @@ pub fn generate_ssdf_report(report: &ScanReport) -> SsdfReport {
             tasks: vec![
                 SsdfTask {
                     task_id: "PS.3.1".into(),
-                    description: "Monitor for vulnerabilities in released software on an ongoing basis.".into(),
+                    description:
+                        "Monitor for vulnerabilities in released software on an ongoing basis."
+                            .into(),
                     status: ComplianceStatus::Compliant,
                     evidence: format!("Checked {} advisories", report.advisories_checked),
                 },
                 SsdfTask {
                     task_id: "PS.3.2".into(),
-                    description: "Develop and implement a remediation plan for vulnerabilities.".into(),
-                    status: if has_high { ComplianceStatus::NonCompliant } else { ComplianceStatus::Compliant },
+                    description: "Develop and implement a remediation plan for vulnerabilities."
+                        .into(),
+                    status: if has_high {
+                        ComplianceStatus::NonCompliant
+                    } else {
+                        ComplianceStatus::Compliant
+                    },
                     evidence: "Remediation plan based on scan findings".into(),
                 },
             ],
@@ -535,14 +579,12 @@ pub fn generate_ssdf_report(report: &ScanReport) -> SsdfReport {
             practice_id: "PS.4".into(),
             practice_name: "Produce Well-Secured Software with Provenance".into(),
             description: "Generate and maintain SBOM and provenance data.".into(),
-            tasks: vec![
-                SsdfTask {
-                    task_id: "PS.4.1".into(),
-                    description: "Generate SBOM for all released software.".into(),
-                    status: ComplianceStatus::Compliant,
-                    evidence: "SBOM generation supported".into(),
-                },
-            ],
+            tasks: vec![SsdfTask {
+                task_id: "PS.4.1".into(),
+                description: "Generate SBOM for all released software.".into(),
+                status: ComplianceStatus::Compliant,
+                evidence: "SBOM generation supported".into(),
+            }],
         },
     ];
 
@@ -592,16 +634,30 @@ pub fn generate_cra_report(report: &ScanReport) -> CraReport {
         CraRequirement {
             article: "Art. 13(1)".into(),
             requirement: "Vulnerability and incident reporting".into(),
-            description: "Manufacturers shall report actively exploited vulnerabilities within 24 hours.".into(),
+            description:
+                "Manufacturers shall report actively exploited vulnerabilities within 24 hours."
+                    .into(),
             status: ComplianceStatus::Compliant,
             evidence: "Automated vulnerability scanning in place".into(),
         },
         CraRequirement {
             article: "Art. 13(2)".into(),
             requirement: "Vulnerability remediation".into(),
-            description: "Manufacturers shall remediate vulnerabilities within reasonable timelines.".into(),
-            status: if has_critical { ComplianceStatus::NonCompliant } else { ComplianceStatus::Compliant },
-            evidence: format!("{} critical findings detected", report.findings.iter().filter(|f| f.severity == VulnerabilitySeverity::Critical).count()),
+            description:
+                "Manufacturers shall remediate vulnerabilities within reasonable timelines.".into(),
+            status: if has_critical {
+                ComplianceStatus::NonCompliant
+            } else {
+                ComplianceStatus::Compliant
+            },
+            evidence: format!(
+                "{} critical findings detected",
+                report
+                    .findings
+                    .iter()
+                    .filter(|f| f.severity == VulnerabilitySeverity::Critical)
+                    .count()
+            ),
         },
         CraRequirement {
             article: "Art. 11(1)".into(),
@@ -613,9 +669,13 @@ pub fn generate_cra_report(report: &ScanReport) -> CraReport {
         CraRequirement {
             article: "Art. 11(2)".into(),
             requirement: "Security risk assessment".into(),
-            description: "Manufacturers shall perform security risk assessments for products.".into(),
+            description: "Manufacturers shall perform security risk assessments for products."
+                .into(),
             status: ComplianceStatus::Compliant,
-            evidence: format!("Risk assessment based on {} scanned dependencies", report.dependencies_scanned),
+            evidence: format!(
+                "Risk assessment based on {} scanned dependencies",
+                report.dependencies_scanned
+            ),
         },
         CraRequirement {
             article: "Art. 14".into(),
@@ -626,7 +686,9 @@ pub fn generate_cra_report(report: &ScanReport) -> CraReport {
         },
     ];
 
-    let all_compliant = requirements.iter().all(|r| r.status == ComplianceStatus::Compliant);
+    let all_compliant = requirements
+        .iter()
+        .all(|r| r.status == ComplianceStatus::Compliant);
 
     CraReport {
         regulation: "EU Cyber Resilience Act".into(),
@@ -694,8 +756,19 @@ pub fn generate_iso27001_report(report: &ScanReport) -> Iso27001Report {
             control_id: "A.8.28".into(),
             control_name: "Secure coding".into(),
             annex: "Annex A".into(),
-            status: if has_high { ComplianceStatus::NonCompliant } else { ComplianceStatus::Compliant },
-            evidence: format!("{} high+ findings detected", report.findings.iter().filter(|f| f.severity >= VulnerabilitySeverity::High).count()),
+            status: if has_high {
+                ComplianceStatus::NonCompliant
+            } else {
+                ComplianceStatus::Compliant
+            },
+            evidence: format!(
+                "{} high+ findings detected",
+                report
+                    .findings
+                    .iter()
+                    .filter(|f| f.severity >= VulnerabilitySeverity::High)
+                    .count()
+            ),
         },
         Iso27001Control {
             control_id: "A.5.15".into(),
@@ -713,7 +786,10 @@ pub fn generate_iso27001_report(report: &ScanReport) -> Iso27001Report {
         },
     ];
 
-    let compliant_count = controls.iter().filter(|c| c.status == ComplianceStatus::Compliant).count();
+    let compliant_count = controls
+        .iter()
+        .filter(|c| c.status == ComplianceStatus::Compliant)
+        .count();
     let total_controls = controls.len();
 
     Iso27001Report {
@@ -776,15 +852,37 @@ pub fn generate_pci_dss_report(report: &ScanReport) -> PciDssReport {
             requirement_id: "6.2.3".into(),
             title: "Critical vulnerability remediation".into(),
             description: "Remediate critical vulnerabilities within 30 days.".into(),
-            status: if has_critical { ComplianceStatus::NonCompliant } else { ComplianceStatus::Compliant },
-            evidence: format!("{} critical findings", report.findings.iter().filter(|f| f.severity == VulnerabilitySeverity::Critical).count()),
+            status: if has_critical {
+                ComplianceStatus::NonCompliant
+            } else {
+                ComplianceStatus::Compliant
+            },
+            evidence: format!(
+                "{} critical findings",
+                report
+                    .findings
+                    .iter()
+                    .filter(|f| f.severity == VulnerabilitySeverity::Critical)
+                    .count()
+            ),
         },
         PciDssRequirement {
             requirement_id: "6.2.4".into(),
             title: "High vulnerability remediation".into(),
             description: "Remediate high-severity vulnerabilities within 90 days.".into(),
-            status: if has_high { ComplianceStatus::NonCompliant } else { ComplianceStatus::Compliant },
-            evidence: format!("{} high findings", report.findings.iter().filter(|f| f.severity == VulnerabilitySeverity::High).count()),
+            status: if has_high {
+                ComplianceStatus::NonCompliant
+            } else {
+                ComplianceStatus::Compliant
+            },
+            evidence: format!(
+                "{} high findings",
+                report
+                    .findings
+                    .iter()
+                    .filter(|f| f.severity == VulnerabilitySeverity::High)
+                    .count()
+            ),
         },
         PciDssRequirement {
             requirement_id: "6.3.1".into(),
@@ -795,7 +893,10 @@ pub fn generate_pci_dss_report(report: &ScanReport) -> PciDssReport {
         },
     ];
 
-    let compliant_count = requirements.iter().filter(|r| r.status == ComplianceStatus::Compliant).count();
+    let compliant_count = requirements
+        .iter()
+        .filter(|r| r.status == ComplianceStatus::Compliant)
+        .count();
     let total_requirements = requirements.len();
     let assessment_result = if compliant_count == total_requirements {
         "PASS — All assessed requirements are compliant".into()
@@ -844,60 +945,89 @@ pub fn generate_fedramp_report(report: &ScanReport, impact_level: &str) -> Fedra
         f.severity >= VulnerabilitySeverity::High && f.status != FindingStatus::FalsePositive
     });
 
-    let controls = vec![
+    let controls = [
         FedrampControl {
             control_id: "RA-5".into(),
             control_name: "Vulnerability scanning".into(),
-            low: true, moderate: true, high: true,
+            low: true,
+            moderate: true,
+            high: true,
             status: ComplianceStatus::Compliant,
             evidence: format!("Scanned {} dependencies", report.dependencies_scanned),
         },
         FedrampControl {
             control_id: "RA-5(1)".into(),
             control_name: "Vulnerability scanning — automated".into(),
-            low: false, moderate: true, high: true,
+            low: false,
+            moderate: true,
+            high: true,
             status: ComplianceStatus::Compliant,
             evidence: "Automated vulnerability scanning via PledgeRecon".into(),
         },
         FedrampControl {
             control_id: "SI-2".into(),
             control_name: "Flaw remediation".into(),
-            low: true, moderate: true, high: true,
-            status: if has_high { ComplianceStatus::NonCompliant } else { ComplianceStatus::Compliant },
-            evidence: format!("{} actionable findings", report.findings.iter().filter(|f| f.status != FindingStatus::FalsePositive).count()),
+            low: true,
+            moderate: true,
+            high: true,
+            status: if has_high {
+                ComplianceStatus::NonCompliant
+            } else {
+                ComplianceStatus::Compliant
+            },
+            evidence: format!(
+                "{} actionable findings",
+                report
+                    .findings
+                    .iter()
+                    .filter(|f| f.status != FindingStatus::FalsePositive)
+                    .count()
+            ),
         },
         FedrampControl {
             control_id: "SI-2(2)".into(),
             control_name: "Flaw remediation — automated".into(),
-            low: false, moderate: false, high: true,
+            low: false,
+            moderate: false,
+            high: true,
             status: ComplianceStatus::Compliant,
             evidence: "Automated fix suggestions generated".into(),
         },
         FedrampControl {
             control_id: "CM-7".into(),
             control_name: "Least functionality".into(),
-            low: true, moderate: true, high: true,
+            low: true,
+            moderate: true,
+            high: true,
             status: ComplianceStatus::Compliant,
             evidence: "Reachability analysis identifies unused code".into(),
         },
         FedrampControl {
             control_id: "SR-3".into(),
             control_name: "Supply chain risk management".into(),
-            low: false, moderate: true, high: true,
+            low: false,
+            moderate: true,
+            high: true,
             status: ComplianceStatus::Compliant,
             evidence: "SBOM generation and dependency scanning".into(),
         },
     ];
 
     let level = impact_level.to_lowercase();
-    let filtered: Vec<&FedrampControl> = controls.iter().filter(|c| match level.as_str() {
-        "low" => c.low,
-        "moderate" => c.moderate,
-        "high" => c.high,
-        _ => true,
-    }).collect();
+    let filtered: Vec<&FedrampControl> = controls
+        .iter()
+        .filter(|c| match level.as_str() {
+            "low" => c.low,
+            "moderate" => c.moderate,
+            "high" => c.high,
+            _ => true,
+        })
+        .collect();
 
-    let compliant_count = filtered.iter().filter(|c| c.status == ComplianceStatus::Compliant).count();
+    let compliant_count = filtered
+        .iter()
+        .filter(|c| c.status == ComplianceStatus::Compliant)
+        .count();
     let total_controls = filtered.len();
     let authorization_status = if compliant_count == total_controls {
         "Authorized — all controls compliant".into()
@@ -997,7 +1127,10 @@ pub fn evaluate_custom_framework(
         })
         .collect();
 
-    let compliant_count = results.iter().filter(|r| r.status == ComplianceStatus::Compliant).count();
+    let compliant_count = results
+        .iter()
+        .filter(|r| r.status == ComplianceStatus::Compliant)
+        .count();
     let total_controls = results.len();
 
     CustomFrameworkReport {
@@ -1096,7 +1229,10 @@ pub fn enforce_policies(
             }
             EnforcementAction::Quarantine => {
                 failures += 1;
-                messages.push(format!("QUARANTINE [{}]: {}", result.rule_id, result.message));
+                messages.push(format!(
+                    "QUARANTINE [{}]: {}",
+                    result.rule_id, result.message
+                ));
             }
         }
     }
@@ -1227,14 +1363,22 @@ mod tests {
         let report = make_report(vec![]);
         let cis = generate_cis_report(&report);
         assert!(cis.overall_score > 0.0);
-        assert!(cis.controls.iter().all(|c| c.status == ComplianceStatus::Compliant));
+        assert!(
+            cis.controls
+                .iter()
+                .all(|c| c.status == ComplianceStatus::Compliant)
+        );
     }
 
     #[test]
     fn test_cis_report_with_critical() {
         let report = make_report(vec![make_finding(VulnerabilitySeverity::Critical)]);
         let cis = generate_cis_report(&report);
-        assert!(cis.controls.iter().any(|c| c.status == ComplianceStatus::NonCompliant));
+        assert!(
+            cis.controls
+                .iter()
+                .any(|c| c.status == ComplianceStatus::NonCompliant)
+        );
     }
 
     // Goal 133 tests
@@ -1244,14 +1388,22 @@ mod tests {
         let report = make_report(vec![]);
         let soc2 = generate_soc2_report(&report, "TestCorp");
         assert_eq!(soc2.organization, "TestCorp");
-        assert!(soc2.controls.iter().all(|c| c.status == ComplianceStatus::Compliant));
+        assert!(
+            soc2.controls
+                .iter()
+                .all(|c| c.status == ComplianceStatus::Compliant)
+        );
     }
 
     #[test]
     fn test_soc2_report_with_findings() {
         let report = make_report(vec![make_finding(VulnerabilitySeverity::High)]);
         let soc2 = generate_soc2_report(&report, "TestCorp");
-        assert!(soc2.controls.iter().any(|c| c.status == ComplianceStatus::NonCompliant));
+        assert!(
+            soc2.controls
+                .iter()
+                .any(|c| c.status == ComplianceStatus::NonCompliant)
+        );
     }
 
     // Goal 134 tests
@@ -1276,14 +1428,22 @@ mod tests {
     fn test_cra_report() {
         let report = make_report(vec![]);
         let cra = generate_cra_report(&report);
-        assert!(cra.requirements.iter().all(|r| r.status == ComplianceStatus::Compliant));
+        assert!(
+            cra.requirements
+                .iter()
+                .all(|r| r.status == ComplianceStatus::Compliant)
+        );
     }
 
     #[test]
     fn test_cra_report_with_critical() {
         let report = make_report(vec![make_finding(VulnerabilitySeverity::Critical)]);
         let cra = generate_cra_report(&report);
-        assert!(cra.requirements.iter().any(|r| r.status == ComplianceStatus::NonCompliant));
+        assert!(
+            cra.requirements
+                .iter()
+                .any(|r| r.status == ComplianceStatus::NonCompliant)
+        );
     }
 
     // Goal 136 tests
@@ -1418,7 +1578,9 @@ mod tests {
             }],
         };
         let mut config = EnforcementConfig::default();
-        config.rule_overrides.insert("PR-001".into(), EnforcementAction::Warn);
+        config
+            .rule_overrides
+            .insert("PR-001".into(), EnforcementAction::Warn);
         let result = enforce_policies(&report, &policies, &config);
         assert!(result.passed);
         assert_eq!(result.warnings, 1);

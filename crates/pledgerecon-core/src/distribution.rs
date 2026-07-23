@@ -25,7 +25,7 @@ pub enum DistributionError {
 /// Generate a Homebrew formula for PledgeRecon.
 pub fn homebrew_formula(version: &str, sha256: &str) -> String {
     format!(
-r##"class Pledgerecon < Formula
+        r##"class Pledgerecon < Formula
   desc "Rust-native dependency vulnerability scanner"
   homepage "https://github.com/pledgeandgrow/pledgerecon"
   url "https://github.com/pledgeandgrow/pledgerecon/releases/download/v{version}/pledgerecon-v{version}-x86_64-apple-darwin.tar.gz"
@@ -44,7 +44,8 @@ r##"class Pledgerecon < Formula
   end
 end
 "##,
-        version = version, sha256 = sha256
+        version = version,
+        sha256 = sha256
     )
 }
 
@@ -53,7 +54,7 @@ end
 /// MSI installer configuration (WiX).
 pub fn wix_config(version: &str) -> String {
     format!(
-r#"<?xml version="1.0" encoding="UTF-8"?>
+        r#"<?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <Product Id="*" Name="PledgeRecon" Language="1033" Version="{version}" Manufacturer="PledgeLabs" UpgradeCode="{{12345678-1234-1234-1234-123456789012}}">
     <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
@@ -84,7 +85,7 @@ r#"<?xml version="1.0" encoding="UTF-8"?>
 /// Debian package control file.
 pub fn debian_control(version: &str) -> String {
     format!(
-r#"Package: pledgerecon
+        r#"Package: pledgerecon
 Version: {version}
 Section: security
 Priority: optional
@@ -105,7 +106,7 @@ License: MIT
 /// RPM spec file.
 pub fn rpm_spec(version: &str) -> String {
     format!(
-r#"Name:           pledgerecon
+        r#"Name:           pledgerecon
 Version:        {version}
 Release:        1%{{?dist}}
 Summary:        Rust-native dependency vulnerability scanner
@@ -142,7 +143,7 @@ install -D -m 755 pledgerecon %{{buildroot}}/usr/bin/pledgerecon
 /// Generate a Nix flake for PledgeRecon.
 pub fn nix_flake(version: &str) -> String {
     format!(
-r##"{{
+        r##"{{
   description = "PledgeRecon — Rust-native dependency vulnerability scanner";
 
   inputs = {{
@@ -238,9 +239,16 @@ pub fn cross_compilation_matrix(version: &str) -> String {
         CrossTarget::Aarch64AppleDarwin,
         CrossTarget::X86_64WindowsMsvc,
     ];
-    let matrix: Vec<String> = targets.iter().map(|t| {
-        format!("      - target: {}\n        archive: {}", t.target_triple(), t.archive_name(version))
-    }).collect();
+    let matrix: Vec<String> = targets
+        .iter()
+        .map(|t| {
+            format!(
+                "      - target: {}\n        archive: {}",
+                t.target_triple(),
+                t.archive_name(version)
+            )
+        })
+        .collect();
     format!("matrix:\n{}", matrix.join("\n"))
 }
 
@@ -342,7 +350,10 @@ pub fn save_scan_cache(
 }
 
 /// Load scan result from cache.
-pub fn load_scan_cache(cache_dir: &Path, lockfile_path: &Path) -> Result<Option<ScanCache>, DistributionError> {
+pub fn load_scan_cache(
+    cache_dir: &Path,
+    lockfile_path: &Path,
+) -> Result<Option<ScanCache>, DistributionError> {
     let hash = compute_cache_key(lockfile_path)?;
     let cache_file = cache_dir.join(format!("scan-{}.json", &hash[..16]));
     if !cache_file.exists() {
@@ -379,7 +390,7 @@ pub fn partition_scan(
     collect_manifests(root, &mut manifests)?;
 
     // Sort by complexity (file size as proxy)
-    manifests.sort_by(|a, b| b.1.cmp(&a.1));
+    manifests.sort_by_key(|a| std::cmp::Reverse(a.1));
 
     // Distribute using round-robin with load balancing
     let mut partitions: Vec<ScanPartition> = (0..max_partitions)
@@ -398,36 +409,60 @@ pub fn partition_scan(
             .min_by_key(|(_, p)| p.estimated_complexity)
             .map(|(i, _)| i)
             .unwrap_or(0);
-        partitions[idx].manifest_files.push(path.display().to_string());
+        partitions[idx]
+            .manifest_files
+            .push(path.display().to_string());
         partitions[idx].estimated_complexity += complexity;
     }
 
     // Remove empty partitions
-    Ok(partitions.into_iter().filter(|p| !p.manifest_files.is_empty()).collect())
+    Ok(partitions
+        .into_iter()
+        .filter(|p| !p.manifest_files.is_empty())
+        .collect())
 }
 
-fn collect_manifests(dir: &Path, manifests: &mut Vec<(PathBuf, u64)>) -> Result<(), DistributionError> {
+fn collect_manifests(
+    dir: &Path,
+    manifests: &mut Vec<(PathBuf, u64)>,
+) -> Result<(), DistributionError> {
     let manifest_names = [
-        "Cargo.toml", "package.json", "go.mod", "requirements.txt", "Pipfile",
-        "pom.xml", "build.gradle", "Gemfile", "composer.json", ".csproj",
-        "Package.swift", "build.sbt", "mix.exs", "rebar.config", "deps.edn",
-        "conanfile.txt", "MODULE.bazel",
+        "Cargo.toml",
+        "package.json",
+        "go.mod",
+        "requirements.txt",
+        "Pipfile",
+        "pom.xml",
+        "build.gradle",
+        "Gemfile",
+        "composer.json",
+        ".csproj",
+        "Package.swift",
+        "build.sbt",
+        "mix.exs",
+        "rebar.config",
+        "deps.edn",
+        "conanfile.txt",
+        "MODULE.bazel",
     ];
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                if name.starts_with('.') || name == "node_modules" || name == "target" || name == "vendor" {
-                    continue;
-                }
+            if let Some(name) = path.file_name().and_then(|n| n.to_str())
+                && (name.starts_with('.')
+                    || name == "node_modules"
+                    || name == "target"
+                    || name == "vendor")
+            {
+                continue;
             }
             collect_manifests(&path, manifests)?;
-        } else if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            if manifest_names.contains(&name) || name.ends_with(".cabal") || name == "DESCRIPTION" {
-                let size = entry.metadata().map(|m| m.len()).unwrap_or(1);
-                manifests.push((path, size));
-            }
+        } else if let Some(name) = path.file_name().and_then(|n| n.to_str())
+            && (manifest_names.contains(&name) || name.ends_with(".cabal") || name == "DESCRIPTION")
+        {
+            let size = entry.metadata().map(|m| m.len()).unwrap_or(1);
+            manifests.push((path, size));
         }
     }
     Ok(())
@@ -573,18 +608,37 @@ mod tests {
 
     fn make_finding(id: &str, pkg: &str, sev: VulnerabilitySeverity) -> Finding {
         Finding {
-            advisory_id: id.into(), summary: "Test".into(), description: "Test".into(),
-            severity: sev, cvss_score: Some(7.0), package: pkg.into(), version: "1.0.0".into(),
-            fix_version: Some("1.0.1".into()), fix_available: true,
-            reachability: ReachabilityStatus::Reachable, vulnerable_functions: vec![],
-            call_chain: vec![], status: FindingStatus::Pending, triage_explanation: None,
-            references: vec![], cwes: vec![], manifest_path: PathBuf::from("Cargo.toml"),
+            advisory_id: id.into(),
+            summary: "Test".into(),
+            description: "Test".into(),
+            severity: sev,
+            cvss_score: Some(7.0),
+            package: pkg.into(),
+            version: "1.0.0".into(),
+            fix_version: Some("1.0.1".into()),
+            fix_available: true,
+            reachability: ReachabilityStatus::Reachable,
+            vulnerable_functions: vec![],
+            call_chain: vec![],
+            status: FindingStatus::Pending,
+            triage_explanation: None,
+            references: vec![],
+            cwes: vec![],
+            manifest_path: PathBuf::from("Cargo.toml"),
             aliases: vec![],
         }
     }
 
     fn make_report(findings: Vec<Finding>) -> ScanReport {
-        ScanReport { scan_id: "test".into(), project_name: "test".into(), scanned_at: Utc::now(), duration_ms: 100, dependencies_scanned: 10, advisories_checked: 5, findings }
+        ScanReport {
+            scan_id: "test".into(),
+            project_name: "test".into(),
+            scanned_at: Utc::now(),
+            duration_ms: 100,
+            dependencies_scanned: 10,
+            advisories_checked: 5,
+            findings,
+        }
     }
 
     #[test]
@@ -636,8 +690,14 @@ mod tests {
 
     #[test]
     fn test_cross_targets() {
-        assert_eq!(CrossTarget::X86_64LinuxMusl.target_triple(), "x86_64-unknown-linux-musl");
-        assert_eq!(CrossTarget::Aarch64AppleDarwin.target_triple(), "aarch64-apple-darwin");
+        assert_eq!(
+            CrossTarget::X86_64LinuxMusl.target_triple(),
+            "x86_64-unknown-linux-musl"
+        );
+        assert_eq!(
+            CrossTarget::Aarch64AppleDarwin.target_triple(),
+            "aarch64-apple-darwin"
+        );
         let archive = CrossTarget::X86_64LinuxMusl.archive_name("1.0.0");
         assert!(archive.contains("1.0.0"));
         assert!(archive.contains("x86_64-unknown-linux-musl"));
@@ -680,7 +740,11 @@ mod tests {
         let cache_dir = dir.join("pledgerecon_cache_test");
         let lockfile = dir.join("pledgerecon_test_lockfile2.txt");
         std::fs::write(&lockfile, "lockfile content").unwrap();
-        let report = make_report(vec![make_finding("CVE-2024-1", "npm:test", VulnerabilitySeverity::High)]);
+        let report = make_report(vec![make_finding(
+            "CVE-2024-1",
+            "npm:test",
+            VulnerabilitySeverity::High,
+        )]);
         let cache = save_scan_cache(&cache_dir, &lockfile, &report).unwrap();
         assert!(!cache.lockfile_hash.is_empty());
         let loaded = load_scan_cache(&cache_dir, &lockfile).unwrap();
@@ -708,8 +772,16 @@ mod tests {
 
     #[test]
     fn test_merge_scan_results() {
-        let r1 = make_report(vec![make_finding("CVE-1", "npm:a", VulnerabilitySeverity::High)]);
-        let r2 = make_report(vec![make_finding("CVE-2", "npm:b", VulnerabilitySeverity::Medium)]);
+        let r1 = make_report(vec![make_finding(
+            "CVE-1",
+            "npm:a",
+            VulnerabilitySeverity::High,
+        )]);
+        let r2 = make_report(vec![make_finding(
+            "CVE-2",
+            "npm:b",
+            VulnerabilitySeverity::Medium,
+        )]);
         let merged = merge_scan_results(vec![r1, r2]);
         assert_eq!(merged.findings.len(), 2);
     }
@@ -734,7 +806,11 @@ mod tests {
 
     #[test]
     fn test_diff_to_markdown() {
-        let base = make_report(vec![make_finding("CVE-1", "npm:a", VulnerabilitySeverity::High)]);
+        let base = make_report(vec![make_finding(
+            "CVE-1",
+            "npm:a",
+            VulnerabilitySeverity::High,
+        )]);
         let head = make_report(vec![
             make_finding("CVE-1", "npm:a", VulnerabilitySeverity::High),
             make_finding("CVE-2", "npm:b", VulnerabilitySeverity::Critical),

@@ -642,7 +642,9 @@ pub fn to_pdf(report: &ScanReport) -> String {
 
     let mut findings_html = String::new();
     if report.findings.is_empty() {
-        findings_html.push_str("<p style=\"color: #22c55e; font-size: 1.2em;\">No vulnerabilities found.</p>\n");
+        findings_html.push_str(
+            "<p style=\"color: #22c55e; font-size: 1.2em;\">No vulnerabilities found.</p>\n",
+        );
     } else {
         let mut findings = report.findings.clone();
         findings.sort_by_key(|b| std::cmp::Reverse(b.severity));
@@ -672,7 +674,10 @@ pub fn to_pdf(report: &ScanReport) -> String {
                 adv = f.advisory_id,
                 pkg = f.package,
                 ver = f.version,
-                cvss = f.cvss_score.map(|s| s.to_string()).unwrap_or("N/A".to_string()),
+                cvss = f
+                    .cvss_score
+                    .map(|s| s.to_string())
+                    .unwrap_or("N/A".to_string()),
                 fix = if f.fix_available {
                     f.fix_version.as_deref().unwrap_or("available")
                 } else {
@@ -695,7 +700,10 @@ pub fn to_pdf(report: &ScanReport) -> String {
                 ));
             }
             if let Some(ref explanation) = f.triage_explanation {
-                findings_html.push_str(&format!("<p><strong>Triage:</strong> {}</p>\n", explanation));
+                findings_html.push_str(&format!(
+                    "<p><strong>Triage:</strong> {}</p>\n",
+                    explanation
+                ));
             }
             if !f.references.is_empty() {
                 findings_html.push_str("<p><strong>References:</strong><br>\n");
@@ -828,7 +836,10 @@ pub fn to_junit_xml(report: &ScanReport) -> String {
                 f.reachability
             ));
             if !f.call_chain.is_empty() {
-                xml.push_str(&format!("        Call chain: {}\n", f.call_chain.join(" -> ")));
+                xml.push_str(&format!(
+                    "        Call chain: {}\n",
+                    f.call_chain.join(" -> ")
+                ));
             }
             xml.push_str("      </failure>\n");
             xml.push_str("    </testcase>\n");

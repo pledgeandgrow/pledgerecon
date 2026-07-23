@@ -1197,7 +1197,10 @@ fn parse_build_sbt(path: &Path) -> Result<Vec<Dependency>, ManifestParseError> {
             let rest = rest.trim_start_matches('+').trim_start_matches('=').trim();
             // Replace %% with % for uniform splitting, then parse "org" % "name" % "version"
             let rest = rest.replace("%%", "%");
-            let parts: Vec<&str> = rest.split('%').map(|s| s.trim().trim_matches('"').trim_matches('%').trim()).collect();
+            let parts: Vec<&str> = rest
+                .split('%')
+                .map(|s| s.trim().trim_matches('"').trim_matches('%').trim())
+                .collect();
             if parts.len() >= 3 {
                 let name = parts[1].to_string();
                 let version = parts[2].to_string();
@@ -1234,10 +1237,7 @@ fn parse_mix_exs(path: &Path) -> Result<Vec<Dependency>, ManifestParseError> {
         let trimmed = line.trim().trim_end_matches(',');
         if trimmed.starts_with("{:") {
             // Extract package name and version from {:name, "version"} or {:name, "~> version"}
-            let inner = trimmed
-                .trim_start_matches('{')
-                .trim_end_matches('}')
-                .trim();
+            let inner = trimmed.trim_start_matches('{').trim_end_matches('}').trim();
             let parts: Vec<&str> = inner.splitn(2, ',').collect();
             if parts.len() == 2 {
                 let name = parts[0].trim().trim_start_matches(':').trim().to_string();
@@ -1278,7 +1278,10 @@ fn parse_cabal(path: &Path) -> Result<Vec<Dependency>, ManifestParseError> {
 
         if trimmed.to_lowercase().starts_with("build-depends:") {
             in_build_depends = true;
-            let rest = trimmed.trim_start_matches(|c: char| c != ':').trim_start_matches(':').trim();
+            let rest = trimmed
+                .trim_start_matches(|c: char| c != ':')
+                .trim_start_matches(':')
+                .trim();
             if !rest.is_empty() {
                 parse_cabal_deps(rest, path, &mut deps);
             }
@@ -1309,7 +1312,12 @@ fn parse_cabal_deps(s: &str, path: &Path, deps: &mut Vec<Dependency>) {
         let tokens: Vec<&str> = part.split_whitespace().collect();
         let name = tokens[0].to_string();
         let version = if tokens.len() > 1 {
-            tokens[1..].join(" ").trim_start_matches('=').trim_start_matches("==").trim().to_string()
+            tokens[1..]
+                .join(" ")
+                .trim_start_matches('=')
+                .trim_start_matches("==")
+                .trim()
+                .to_string()
         } else {
             "any".to_string()
         };
@@ -1342,7 +1350,11 @@ fn parse_r_description(path: &Path) -> Result<Vec<Dependency>, ManifestParseErro
         if let Some(colon_idx) = trimmed.find(':') {
             let field = trimmed[..colon_idx].trim().to_lowercase();
             if field == "imports" || field == "depends" {
-                current_field = Some(if field == "imports" { "imports" } else { "depends" });
+                current_field = Some(if field == "imports" {
+                    "imports"
+                } else {
+                    "depends"
+                });
                 let rest = trimmed[colon_idx + 1..].trim();
                 if !rest.is_empty() {
                     parse_r_deps(rest, path, &mut deps, current_field == Some("depends"));
@@ -1373,7 +1385,12 @@ fn parse_r_deps(s: &str, path: &Path, deps: &mut Vec<Dependency>, is_depends: bo
         // Format: "package (>=1.0.0)" or "package"
         let name = part.split('(').next().unwrap_or("").trim().to_string();
         let version = if let Some(v_start) = part.find('(') {
-            part[v_start..].trim_matches('(').trim_matches(')').trim_start_matches(">=").trim().to_string()
+            part[v_start..]
+                .trim_matches('(')
+                .trim_matches(')')
+                .trim_start_matches(">=")
+                .trim()
+                .to_string()
         } else {
             "any".to_string()
         };
@@ -1460,24 +1477,28 @@ fn parse_deps_edn(path: &Path) -> Result<Vec<Dependency>, ManifestParseError> {
         }
         // The name is everything before the last `{` that precedes :mvn/version
         // The version is in quotes after :mvn/version
-        if let Some(v_start) = trimmed.find("\"") {
-            if let Some(v_end) = trimmed[v_start + 1..].find("\"") {
-                let version = trimmed[v_start + 1..v_start + 1 + v_end].to_string();
-                // Name is before the `{` that contains :mvn/version
-                let before_version = &trimmed[..v_start];
-                if let Some(brace_idx) = before_version.rfind('{') {
-                    let name = trimmed[..brace_idx].trim().trim_start_matches('{').trim().to_string();
-                    if !name.is_empty() && !version.is_empty() {
-                        deps.push(Dependency {
-                            name,
-                            version,
-                            kind: DependencyKind::Clojure,
-                            is_direct: true,
-                            manifest_path: path.to_path_buf(),
-                            dependencies: vec![],
-                            source_url: None,
-                        });
-                    }
+        if let Some(v_start) = trimmed.find("\"")
+            && let Some(v_end) = trimmed[v_start + 1..].find("\"")
+        {
+            let version = trimmed[v_start + 1..v_start + 1 + v_end].to_string();
+            // Name is before the `{` that contains :mvn/version
+            let before_version = &trimmed[..v_start];
+            if let Some(brace_idx) = before_version.rfind('{') {
+                let name = trimmed[..brace_idx]
+                    .trim()
+                    .trim_start_matches('{')
+                    .trim()
+                    .to_string();
+                if !name.is_empty() && !version.is_empty() {
+                    deps.push(Dependency {
+                        name,
+                        version,
+                        kind: DependencyKind::Clojure,
+                        is_direct: true,
+                        manifest_path: path.to_path_buf(),
+                        dependencies: vec![],
+                        source_url: None,
+                    });
                 }
             }
         }
@@ -1493,10 +1514,7 @@ fn parse_conanfile(path: &Path) -> Result<Vec<Dependency>, ManifestParseError> {
         .map_err(|e| ManifestParseError::Io(path.display().to_string(), e))?;
     let mut deps = Vec::new();
 
-    let filename = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("");
+    let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
     if filename == "conanfile.txt" {
         // Format: [requires] section with "name/version@user/channel"
@@ -1531,7 +1549,11 @@ fn parse_conanfile(path: &Path) -> Result<Vec<Dependency>, ManifestParseError> {
         for line in content.lines() {
             let trimmed = line.trim();
             if let Some(rest) = trimmed.strip_prefix("requires(") {
-                let inner = rest.trim_end_matches(')').trim().trim_matches('"').trim_matches('\'');
+                let inner = rest
+                    .trim_end_matches(')')
+                    .trim()
+                    .trim_matches('"')
+                    .trim_matches('\'');
                 let parts: Vec<&str> = inner.split('/').collect();
                 let name = parts[0].to_string();
                 let version = parts.get(1).unwrap_or(&"any").to_string();
@@ -1545,7 +1567,11 @@ fn parse_conanfile(path: &Path) -> Result<Vec<Dependency>, ManifestParseError> {
                     source_url: None,
                 });
             } else if let Some(rest) = trimmed.strip_prefix("self.requires(") {
-                let inner = rest.trim_end_matches(')').trim().trim_matches('"').trim_matches('\'');
+                let inner = rest
+                    .trim_end_matches(')')
+                    .trim()
+                    .trim_matches('"')
+                    .trim_matches('\'');
                 let parts: Vec<&str> = inner.split('/').collect();
                 let name = parts[0].to_string();
                 let version = parts.get(1).unwrap_or(&"any").to_string();
@@ -1572,10 +1598,7 @@ fn parse_bazel_build(path: &Path) -> Result<Vec<Dependency>, ManifestParseError>
         .map_err(|e| ManifestParseError::Io(path.display().to_string(), e))?;
     let mut deps = Vec::new();
 
-    let filename = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("");
+    let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
     if filename == "MODULE.bazel" {
         // MODULE.bazel format: bazel_dep(name = "rules_cc", version = "0.0.1")
@@ -1592,9 +1615,21 @@ fn parse_bazel_build(path: &Path) -> Result<Vec<Dependency>, ManifestParseError>
                 for part in inner.split(',') {
                     let part = part.trim();
                     if let Some(rest) = part.strip_prefix("name") {
-                        name = rest.trim().trim_start_matches('=').trim().trim_matches('"').trim_matches('\'').to_string();
+                        name = rest
+                            .trim()
+                            .trim_start_matches('=')
+                            .trim()
+                            .trim_matches('"')
+                            .trim_matches('\'')
+                            .to_string();
                     } else if let Some(rest) = part.strip_prefix("version") {
-                        version = rest.trim().trim_start_matches('=').trim().trim_matches('"').trim_matches('\'').to_string();
+                        version = rest
+                            .trim()
+                            .trim_start_matches('=')
+                            .trim()
+                            .trim_matches('"')
+                            .trim_matches('\'')
+                            .to_string();
                     }
                 }
                 if !name.is_empty() {
@@ -1619,7 +1654,12 @@ fn parse_bazel_build(path: &Path) -> Result<Vec<Dependency>, ManifestParseError>
                 for part in trimmed.split(',') {
                     let part = part.trim();
                     if let Some(rest) = part.strip_prefix("name") {
-                        name = rest.trim_start_matches('=').trim().trim_matches('"').trim_matches('\'').to_string();
+                        name = rest
+                            .trim_start_matches('=')
+                            .trim()
+                            .trim_matches('"')
+                            .trim_matches('\'')
+                            .to_string();
                     }
                 }
                 if !name.is_empty() {
@@ -2010,12 +2050,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
         let dir = std::env::temp_dir().join("pledgerecon_dep_test_sbt");
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("build.sbt");
-        std::fs::write(&path, r#"libraryDependencies += "org.typelevel" %% "cats-core" % "2.10.0"
+        std::fs::write(
+            &path,
+            r#"libraryDependencies += "org.typelevel" %% "cats-core" % "2.10.0"
 libraryDependencies += "io.circe" %% "circe-core" % "0.14.6"
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         let deps = parse_build_sbt(&path).unwrap();
-        assert!(deps.iter().any(|d| d.name == "cats-core" && d.version == "2.10.0"));
-        assert!(deps.iter().any(|d| d.name == "circe-core" && d.version == "0.14.6"));
+        assert!(
+            deps.iter()
+                .any(|d| d.name == "cats-core" && d.version == "2.10.0")
+        );
+        assert!(
+            deps.iter()
+                .any(|d| d.name == "circe-core" && d.version == "0.14.6")
+        );
         assert!(deps.iter().all(|d| d.kind == DependencyKind::Scala));
     }
 
@@ -2024,7 +2074,9 @@ libraryDependencies += "io.circe" %% "circe-core" % "0.14.6"
         let dir = std::env::temp_dir().join("pledgerecon_dep_test_mix");
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("mix.exs");
-        std::fs::write(&path, r#"defmodule MyApp.MixProject do
+        std::fs::write(
+            &path,
+            r#"defmodule MyApp.MixProject do
   defp deps do
     [
       {:phoenix, "~> 1.7.0"},
@@ -2032,10 +2084,18 @@ libraryDependencies += "io.circe" %% "circe-core" % "0.14.6"
     ]
   end
 end
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         let deps = parse_mix_exs(&path).unwrap();
-        assert!(deps.iter().any(|d| d.name == "phoenix" && d.version == "~> 1.7.0"));
-        assert!(deps.iter().any(|d| d.name == "ecto" && d.version == "~> 3.10"));
+        assert!(
+            deps.iter()
+                .any(|d| d.name == "phoenix" && d.version == "~> 1.7.0")
+        );
+        assert!(
+            deps.iter()
+                .any(|d| d.name == "ecto" && d.version == "~> 3.10")
+        );
         assert!(deps.iter().all(|d| d.kind == DependencyKind::Elixir));
     }
 
@@ -2044,14 +2104,24 @@ end
         let dir = std::env::temp_dir().join("pledgerecon_dep_test_cabal");
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("myapp.cabal");
-        std::fs::write(&path, r#"build-depends:
+        std::fs::write(
+            &path,
+            r#"build-depends:
     base >=4.7 && <5,
     aeson ==2.1.0,
     text
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         let deps = parse_cabal(&path).unwrap();
-        assert!(deps.iter().any(|d| d.name == "base" && d.version.contains("4.7")));
-        assert!(deps.iter().any(|d| d.name == "aeson" && d.version.contains("2.1.0")));
+        assert!(
+            deps.iter()
+                .any(|d| d.name == "base" && d.version.contains("4.7"))
+        );
+        assert!(
+            deps.iter()
+                .any(|d| d.name == "aeson" && d.version.contains("2.1.0"))
+        );
         assert!(deps.iter().any(|d| d.name == "text" && d.version == "any"));
         assert!(deps.iter().all(|d| d.kind == DependencyKind::Haskell));
     }
@@ -2061,15 +2131,22 @@ end
         let dir = std::env::temp_dir().join("pledgerecon_dep_test_r");
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("DESCRIPTION");
-        std::fs::write(&path, r#"Package: mypackage
+        std::fs::write(
+            &path,
+            r#"Package: mypackage
 Version: 1.0.0
 Imports:
     ggplot2 (>=3.4.0),
     dplyr
 Depends: R (>=4.0)
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         let deps = parse_r_description(&path).unwrap();
-        assert!(deps.iter().any(|d| d.name == "ggplot2" && d.version.contains("3.4.0")));
+        assert!(
+            deps.iter()
+                .any(|d| d.name == "ggplot2" && d.version.contains("3.4.0"))
+        );
         assert!(deps.iter().any(|d| d.name == "dplyr" && d.version == "any"));
         assert!(!deps.iter().any(|d| d.name == "R"));
         assert!(deps.iter().all(|d| d.kind == DependencyKind::R));
@@ -2080,13 +2157,20 @@ Depends: R (>=4.0)
         let dir = std::env::temp_dir().join("pledgerecon_dep_test_rebar");
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("rebar.config");
-        std::fs::write(&path, r#"{deps, [
+        std::fs::write(
+            &path,
+            r#"{deps, [
     {cowboy, "2.12.1"},
     {jiffy, "1.1.1"}
 ]}.
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         let deps = parse_rebar_config(&path).unwrap();
-        assert!(deps.iter().any(|d| d.name == "cowboy" && d.version == "2.12.1"));
+        assert!(
+            deps.iter()
+                .any(|d| d.name == "cowboy" && d.version == "2.12.1")
+        );
         assert!(deps.iter().all(|d| d.kind == DependencyKind::Erlang));
     }
 
@@ -2095,14 +2179,24 @@ Depends: R (>=4.0)
         let dir = std::env::temp_dir().join("pledgerecon_dep_test_edn");
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("deps.edn");
-        std::fs::write(&path, r#"{:deps
+        std::fs::write(
+            &path,
+            r#"{:deps
  {org.clojure/clojure {:mvn/version "1.11.1"}
   metosin/malli {:mvn/version "0.13.0"}}
 }
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         let deps = parse_deps_edn(&path).unwrap();
-        assert!(deps.iter().any(|d| d.name == "org.clojure/clojure" && d.version == "1.11.1"));
-        assert!(deps.iter().any(|d| d.name == "metosin/malli" && d.version == "0.13.0"));
+        assert!(
+            deps.iter()
+                .any(|d| d.name == "org.clojure/clojure" && d.version == "1.11.1")
+        );
+        assert!(
+            deps.iter()
+                .any(|d| d.name == "metosin/malli" && d.version == "0.13.0")
+        );
         assert!(deps.iter().all(|d| d.kind == DependencyKind::Clojure));
     }
 
@@ -2111,16 +2205,26 @@ Depends: R (>=4.0)
         let dir = std::env::temp_dir().join("pledgerecon_dep_test_conan");
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("conanfile.txt");
-        std::fs::write(&path, r#"[requires]
+        std::fs::write(
+            &path,
+            r#"[requires]
 openssl/3.1.4
 zlib/1.3.1
 
 [generators]
 cmake
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         let deps = parse_conanfile(&path).unwrap();
-        assert!(deps.iter().any(|d| d.name == "openssl" && d.version == "3.1.4"));
-        assert!(deps.iter().any(|d| d.name == "zlib" && d.version == "1.3.1"));
+        assert!(
+            deps.iter()
+                .any(|d| d.name == "openssl" && d.version == "3.1.4")
+        );
+        assert!(
+            deps.iter()
+                .any(|d| d.name == "zlib" && d.version == "1.3.1")
+        );
         assert!(deps.iter().all(|d| d.kind == DependencyKind::Conan));
     }
 
@@ -2129,27 +2233,67 @@ cmake
         let dir = std::env::temp_dir().join("pledgerecon_dep_test_bazel");
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("MODULE.bazel");
-        std::fs::write(&path, r#"module(name = "myproject", version = "1.0.0")
+        std::fs::write(
+            &path,
+            r#"module(name = "myproject", version = "1.0.0")
 bazel_dep(name = "rules_cc", version = "0.0.1")
 bazel_dep(name = "rules_java", version = "7.1.0")
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         let deps = parse_bazel_build(&path).unwrap();
-        assert!(deps.iter().any(|d| d.name == "rules_cc" && d.version == "0.0.1"));
-        assert!(deps.iter().any(|d| d.name == "rules_java" && d.version == "7.1.0"));
+        assert!(
+            deps.iter()
+                .any(|d| d.name == "rules_cc" && d.version == "0.0.1")
+        );
+        assert!(
+            deps.iter()
+                .any(|d| d.name == "rules_java" && d.version == "7.1.0")
+        );
         assert!(deps.iter().all(|d| d.kind == DependencyKind::Bazel));
     }
 
     #[test]
     fn test_dependency_kind_from_manifest_new() {
-        assert_eq!(DependencyKind::from_manifest("build.sbt"), Some(DependencyKind::Scala));
-        assert_eq!(DependencyKind::from_manifest("build.gradle.kts"), Some(DependencyKind::Kotlin));
-        assert_eq!(DependencyKind::from_manifest("mix.exs"), Some(DependencyKind::Elixir));
-        assert_eq!(DependencyKind::from_manifest("myapp.cabal"), Some(DependencyKind::Haskell));
-        assert_eq!(DependencyKind::from_manifest("DESCRIPTION"), Some(DependencyKind::R));
-        assert_eq!(DependencyKind::from_manifest("rebar.config"), Some(DependencyKind::Erlang));
-        assert_eq!(DependencyKind::from_manifest("deps.edn"), Some(DependencyKind::Clojure));
-        assert_eq!(DependencyKind::from_manifest("conanfile.txt"), Some(DependencyKind::Conan));
-        assert_eq!(DependencyKind::from_manifest("MODULE.bazel"), Some(DependencyKind::Bazel));
-        assert_eq!(DependencyKind::from_manifest("BUILD"), Some(DependencyKind::Bazel));
+        assert_eq!(
+            DependencyKind::from_manifest("build.sbt"),
+            Some(DependencyKind::Scala)
+        );
+        assert_eq!(
+            DependencyKind::from_manifest("build.gradle.kts"),
+            Some(DependencyKind::Kotlin)
+        );
+        assert_eq!(
+            DependencyKind::from_manifest("mix.exs"),
+            Some(DependencyKind::Elixir)
+        );
+        assert_eq!(
+            DependencyKind::from_manifest("myapp.cabal"),
+            Some(DependencyKind::Haskell)
+        );
+        assert_eq!(
+            DependencyKind::from_manifest("DESCRIPTION"),
+            Some(DependencyKind::R)
+        );
+        assert_eq!(
+            DependencyKind::from_manifest("rebar.config"),
+            Some(DependencyKind::Erlang)
+        );
+        assert_eq!(
+            DependencyKind::from_manifest("deps.edn"),
+            Some(DependencyKind::Clojure)
+        );
+        assert_eq!(
+            DependencyKind::from_manifest("conanfile.txt"),
+            Some(DependencyKind::Conan)
+        );
+        assert_eq!(
+            DependencyKind::from_manifest("MODULE.bazel"),
+            Some(DependencyKind::Bazel)
+        );
+        assert_eq!(
+            DependencyKind::from_manifest("BUILD"),
+            Some(DependencyKind::Bazel)
+        );
     }
 }

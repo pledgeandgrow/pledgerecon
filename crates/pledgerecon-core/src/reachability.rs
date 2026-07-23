@@ -737,11 +737,11 @@ impl ReachabilityAnalyzer {
 
             if unchanged {
                 // Reuse existing nodes from the previous graph for this file.
-                for (_, node) in &previous.nodes {
-                    if let Some(ref sp) = node.source_path {
-                        if sp == path {
-                            graph.add_node(node.clone());
-                        }
+                for node in previous.nodes.values() {
+                    if let Some(ref sp) = node.source_path
+                        && sp == path
+                    {
+                        graph.add_node(node.clone());
                     }
                 }
                 debug!("Incremental: reused nodes for {}", path.display());
@@ -891,10 +891,10 @@ impl PledgePackModuleGraph {
                         });
                     }
                     // Add edge from this module to the imported symbol.
-                    if let Some(node) = graph.nodes.get_mut(&qualified_name) {
-                        if !node.callees.contains(&callee) {
-                            node.callees.push(callee);
-                        }
+                    if let Some(node) = graph.nodes.get_mut(&qualified_name)
+                        && !node.callees.contains(&callee)
+                    {
+                        node.callees.push(callee);
                     }
                 }
             }
@@ -1160,7 +1160,11 @@ mod tests {
 
         // Check that import edges were created.
         let index_node = graph.nodes.get("src/index.js").unwrap();
-        assert!(index_node.callees.contains(&"src/utils.js::helper".to_string()));
+        assert!(
+            index_node
+                .callees
+                .contains(&"src/utils.js::helper".to_string())
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -1223,8 +1227,7 @@ mod tests {
         hashes.insert(dir.join("app.js"), compute_content_hash(&content));
 
         // Second pass — incremental, file unchanged.
-        let (graph2, hashes2) =
-            analyzer.build_call_graph_incremental(&dir, &graph1, &hashes);
+        let (graph2, hashes2) = analyzer.build_call_graph_incremental(&dir, &graph1, &hashes);
 
         assert!(!graph2.is_empty(), "incremental graph should have nodes");
         assert_eq!(hashes2.len(), 1, "should have hash for one file");
@@ -1239,11 +1242,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
 
         // Create a simple JS file.
-        std::fs::write(
-            dir.join("app.js"),
-            "function main() { helper(); }\n",
-        )
-        .unwrap();
+        std::fs::write(dir.join("app.js"), "function main() { helper(); }\n").unwrap();
 
         let analyzer = ReachabilityAnalyzer::new();
 
@@ -1263,8 +1262,7 @@ mod tests {
         .unwrap();
 
         // Second pass — file changed, should re-parse.
-        let (graph2, hashes2) =
-            analyzer.build_call_graph_incremental(&dir, &graph1, &hashes);
+        let (graph2, hashes2) = analyzer.build_call_graph_incremental(&dir, &graph1, &hashes);
 
         assert!(!graph2.is_empty());
         // The new hash should differ from the old one.

@@ -31,8 +31,12 @@ pub enum EnterpriseError {
     Invalid(String),
 }
 
-fn default_true() -> bool { true }
-fn default_false() -> bool { false }
+fn default_true() -> bool {
+    true
+}
+fn default_false() -> bool {
+    false
+}
 
 // ─── Goal 87: License Compliance ────────────────────────────────────────────
 
@@ -58,7 +62,11 @@ impl Default for LicensePolicy {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum LicenseStatus { Allowed, Denied, Unknown }
+pub enum LicenseStatus {
+    Allowed,
+    Denied,
+    Unknown,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LicenseFinding {
@@ -77,13 +85,17 @@ fn detect_license(name: &str) -> String {
     }
 }
 
-pub fn check_license_compliance(graph: &DependencyGraph, policy: &LicensePolicy) -> Vec<LicenseFinding> {
+pub fn check_license_compliance(
+    graph: &DependencyGraph,
+    policy: &LicensePolicy,
+) -> Vec<LicenseFinding> {
     let mut findings = Vec::new();
     for dep in graph.dependencies.values() {
         let license = detect_license(&dep.name);
-        let status = if policy.deny.iter().any(|d| license.eq_ignore_ascii_case(d)) {
-            LicenseStatus::Denied
-        } else if !policy.allow.is_empty() && !policy.allow.iter().any(|a| license.eq_ignore_ascii_case(a)) {
+        let status = if policy.deny.iter().any(|d| license.eq_ignore_ascii_case(d))
+            || (!policy.allow.is_empty()
+                && !policy.allow.iter().any(|a| license.eq_ignore_ascii_case(a)))
+        {
             LicenseStatus::Denied
         } else if license == "UNKNOWN" && policy.fail_on_unknown {
             LicenseStatus::Unknown
@@ -98,7 +110,8 @@ pub fn check_license_compliance(graph: &DependencyGraph, policy: &LicensePolicy)
                     LicenseStatus::Unknown => "License unknown".to_string(),
                     _ => String::new(),
                 },
-                license, status,
+                license,
+                status,
             });
         }
     }
@@ -109,7 +122,13 @@ pub fn check_license_compliance(graph: &DependencyGraph, policy: &LicensePolicy)
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SlsaLevel { None, L1, L2, L3, L4 }
+pub enum SlsaLevel {
+    None,
+    L1,
+    L2,
+    L3,
+    L4,
+}
 
 impl std::fmt::Display for SlsaLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -146,22 +165,47 @@ pub fn verify_slsa_provenance(
     attestations: &[SlsaProvenance],
     min_level: SlsaLevel,
 ) -> Vec<ProvenanceResult> {
-    let map: HashMap<String, &SlsaProvenance> = attestations.iter().map(|a| (a.package.clone(), a)).collect();
+    let map: HashMap<String, &SlsaProvenance> = attestations
+        .iter()
+        .map(|a| (a.package.clone(), a))
+        .collect();
     let mut results = Vec::new();
     for dep in graph.dependencies.values() {
         let qname = dep.qualified_name();
         let result = if let Some(att) = map.get(&qname) {
             if att.level < min_level {
-                ProvenanceResult { package: qname, level: att.level, verified: false, message: format!("SLSA {} below minimum {}", att.level, min_level) }
+                ProvenanceResult {
+                    package: qname,
+                    level: att.level,
+                    verified: false,
+                    message: format!("SLSA {} below minimum {}", att.level, min_level),
+                }
             } else if !att.verified {
-                ProvenanceResult { package: qname, level: att.level, verified: false, message: "Attestation unverified".into() }
+                ProvenanceResult {
+                    package: qname,
+                    level: att.level,
+                    verified: false,
+                    message: "Attestation unverified".into(),
+                }
             } else {
-                ProvenanceResult { package: qname, level: att.level, verified: true, message: format!("SLSA {} verified", att.level) }
+                ProvenanceResult {
+                    package: qname,
+                    level: att.level,
+                    verified: true,
+                    message: format!("SLSA {} verified", att.level),
+                }
             }
         } else {
-            ProvenanceResult { package: qname, level: SlsaLevel::None, verified: false, message: "No provenance found".into() }
+            ProvenanceResult {
+                package: qname,
+                level: SlsaLevel::None,
+                verified: false,
+                message: "No provenance found".into(),
+            }
         };
-        if !result.verified { results.push(result); }
+        if !result.verified {
+            results.push(result);
+        }
     }
     results
 }
@@ -185,21 +229,47 @@ pub struct SignatureResult {
     pub message: String,
 }
 
-pub fn verify_signatures(graph: &DependencyGraph, attestations: &[SignatureAttestation]) -> Vec<SignatureResult> {
-    let map: HashMap<String, &SignatureAttestation> = attestations.iter().map(|s| (s.package.clone(), s)).collect();
+pub fn verify_signatures(
+    graph: &DependencyGraph,
+    attestations: &[SignatureAttestation],
+) -> Vec<SignatureResult> {
+    let map: HashMap<String, &SignatureAttestation> = attestations
+        .iter()
+        .map(|s| (s.package.clone(), s))
+        .collect();
     let mut results = Vec::new();
     for dep in graph.dependencies.values() {
         let qname = dep.qualified_name();
         let result = if let Some(sig) = map.get(&qname) {
             if sig.verified {
-                SignatureResult { package: qname, verified: true, signer: sig.signer_identity.clone(), message: format!("Verified by {}", sig.signer_identity.as_deref().unwrap_or("unknown")) }
+                SignatureResult {
+                    package: qname,
+                    verified: true,
+                    signer: sig.signer_identity.clone(),
+                    message: format!(
+                        "Verified by {}",
+                        sig.signer_identity.as_deref().unwrap_or("unknown")
+                    ),
+                }
             } else {
-                SignatureResult { package: qname, verified: false, signer: sig.signer_identity.clone(), message: "Verification failed".into() }
+                SignatureResult {
+                    package: qname,
+                    verified: false,
+                    signer: sig.signer_identity.clone(),
+                    message: "Verification failed".into(),
+                }
             }
         } else {
-            SignatureResult { package: qname, verified: false, signer: None, message: "No signature found".into() }
+            SignatureResult {
+                package: qname,
+                verified: false,
+                signer: None,
+                message: "No signature found".into(),
+            }
         };
-        if !result.verified { results.push(result); }
+        if !result.verified {
+            results.push(result);
+        }
     }
     results
 }
@@ -207,13 +277,27 @@ pub fn verify_signatures(graph: &DependencyGraph, attestations: &[SignatureAttes
 // ─── Goal 90: SBOM Diff ─────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct SbomComponent { pub name: String, pub version: String, pub ecosystem: String }
+pub struct SbomComponent {
+    pub name: String,
+    pub version: String,
+    pub ecosystem: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SbomComponentChange { pub name: String, pub old_version: String, pub new_version: String, pub ecosystem: String }
+pub struct SbomComponentChange {
+    pub name: String,
+    pub old_version: String,
+    pub new_version: String,
+    pub ecosystem: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SbomDiffSummary { pub added: usize, pub removed: usize, pub changed: usize, pub unchanged: usize }
+pub struct SbomDiffSummary {
+    pub added: usize,
+    pub removed: usize,
+    pub changed: usize,
+    pub unchanged: usize,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SbomDiff {
@@ -226,19 +310,46 @@ pub struct SbomDiff {
 fn parse_sbom_components(json: &str) -> Result<Vec<SbomComponent>, EnterpriseError> {
     let value: serde_json::Value = serde_json::from_str(json)?;
     if let Some(components) = value.get("components").and_then(|c| c.as_array()) {
-        return Ok(components.iter().filter_map(|c| {
-            let name = c.get("name")?.as_str()?.to_string();
-            let version = c.get("version").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-            let ecosystem = c.get("purl").and_then(|p| p.as_str()).and_then(|s| s.strip_prefix("pkg:").and_then(|s| s.split('/').next())).unwrap_or("unknown").to_string();
-            Some(SbomComponent { name, version, ecosystem })
-        }).collect());
+        return Ok(components
+            .iter()
+            .filter_map(|c| {
+                let name = c.get("name")?.as_str()?.to_string();
+                let version = c
+                    .get("version")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                let ecosystem = c
+                    .get("purl")
+                    .and_then(|p| p.as_str())
+                    .and_then(|s| s.strip_prefix("pkg:").and_then(|s| s.split('/').next()))
+                    .unwrap_or("unknown")
+                    .to_string();
+                Some(SbomComponent {
+                    name,
+                    version,
+                    ecosystem,
+                })
+            })
+            .collect());
     }
     if let Some(packages) = value.get("packages").and_then(|p| p.as_array()) {
-        return Ok(packages.iter().filter_map(|p| {
-            let name = p.get("name")?.as_str()?.to_string();
-            let version = p.get("versionInfo").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-            Some(SbomComponent { name, version, ecosystem: "unknown".into() })
-        }).collect());
+        return Ok(packages
+            .iter()
+            .filter_map(|p| {
+                let name = p.get("name")?.as_str()?.to_string();
+                let version = p
+                    .get("versionInfo")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                Some(SbomComponent {
+                    name,
+                    version,
+                    ecosystem: "unknown".into(),
+                })
+            })
+            .collect());
     }
     Ok(Vec::new())
 }
@@ -246,28 +357,65 @@ fn parse_sbom_components(json: &str) -> Result<Vec<SbomComponent>, EnterpriseErr
 pub fn diff_sboms(old: &str, new: &str) -> Result<SbomDiff, EnterpriseError> {
     let old_c = parse_sbom_components(old)?;
     let new_c = parse_sbom_components(new)?;
-    let old_map: HashMap<String, SbomComponent> = old_c.iter().map(|c| (c.name.clone(), c.clone())).collect();
-    let new_map: HashMap<String, SbomComponent> = new_c.iter().map(|c| (c.name.clone(), c.clone())).collect();
+    let old_map: HashMap<String, SbomComponent> =
+        old_c.iter().map(|c| (c.name.clone(), c.clone())).collect();
+    let new_map: HashMap<String, SbomComponent> =
+        new_c.iter().map(|c| (c.name.clone(), c.clone())).collect();
     let old_n: HashSet<&String> = old_map.keys().collect();
     let new_n: HashSet<&String> = new_map.keys().collect();
-    let added: Vec<SbomComponent> = new_n.difference(&old_n).map(|n| new_map[*n].clone()).collect();
-    let removed: Vec<SbomComponent> = old_n.difference(&new_n).map(|n| old_map[*n].clone()).collect();
+    let added: Vec<SbomComponent> = new_n
+        .difference(&old_n)
+        .map(|n| new_map[*n].clone())
+        .collect();
+    let removed: Vec<SbomComponent> = old_n
+        .difference(&new_n)
+        .map(|n| old_map[*n].clone())
+        .collect();
     let mut changed = Vec::new();
     let mut unchanged = 0;
     for name in old_n.intersection(&new_n) {
         if old_map[*name].version != new_map[*name].version {
-            changed.push(SbomComponentChange { name: name.to_string(), old_version: old_map[*name].version.clone(), new_version: new_map[*name].version.clone(), ecosystem: new_map[*name].ecosystem.clone() });
-        } else { unchanged += 1; }
+            changed.push(SbomComponentChange {
+                name: name.to_string(),
+                old_version: old_map[*name].version.clone(),
+                new_version: new_map[*name].version.clone(),
+                ecosystem: new_map[*name].ecosystem.clone(),
+            });
+        } else {
+            unchanged += 1;
+        }
     }
-    Ok(SbomDiff { added, removed, changed, summary: SbomDiffSummary { added: 0, removed: 0, changed: 0, unchanged } })
+    Ok(SbomDiff {
+        added,
+        removed,
+        changed,
+        summary: SbomDiffSummary {
+            added: 0,
+            removed: 0,
+            changed: 0,
+            unchanged,
+        },
+    })
 }
 
 pub fn sbom_diff_to_text(diff: &SbomDiff) -> String {
     let s = &diff.summary;
-    let mut out = format!("SBOM Diff: +{} -{} ~{} ={}\n", s.added, s.removed, s.changed, s.unchanged);
-    for c in &diff.added { out.push_str(&format!("  + {}@{}\n", c.name, c.version)); }
-    for c in &diff.removed { out.push_str(&format!("  - {}@{}\n", c.name, c.version)); }
-    for c in &diff.changed { out.push_str(&format!("  ~ {} ({}→{})\n", c.name, c.old_version, c.new_version)); }
+    let mut out = format!(
+        "SBOM Diff: +{} -{} ~{} ={}\n",
+        s.added, s.removed, s.changed, s.unchanged
+    );
+    for c in &diff.added {
+        out.push_str(&format!("  + {}@{}\n", c.name, c.version));
+    }
+    for c in &diff.removed {
+        out.push_str(&format!("  - {}@{}\n", c.name, c.version));
+    }
+    for c in &diff.changed {
+        out.push_str(&format!(
+            "  ~ {} ({}→{})\n",
+            c.name, c.old_version, c.new_version
+        ));
+    }
     out
 }
 
@@ -275,40 +423,87 @@ pub fn sbom_diff_to_text(diff: &SbomDiff) -> String {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum VexStatus { NotAffected, Affected, Fixed, UnderInvestigation }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VexStatement {
-    pub vulnerability: String, pub product: String, pub version: String,
-    pub status: VexStatus,
-    #[serde(skip_serializing_if = "Option::is_none")] pub justification: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")] pub action_statement: Option<String>,
+pub enum VexStatus {
+    NotAffected,
+    Affected,
+    Fixed,
+    UnderInvestigation,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VexDocument { pub bom_format: String, pub spec_version: String, pub version: u32, pub vex_statements: Vec<VexStatement> }
+pub struct VexStatement {
+    pub vulnerability: String,
+    pub product: String,
+    pub version: String,
+    pub status: VexStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub justification: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action_statement: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VexDocument {
+    pub bom_format: String,
+    pub spec_version: String,
+    pub version: u32,
+    pub vex_statements: Vec<VexStatement>,
+}
 
 pub fn generate_vex(report: &ScanReport) -> VexDocument {
     use crate::finding::{FindingStatus, ReachabilityStatus};
-    let statements = report.findings.iter().map(|f| {
-        let status = if f.status == FindingStatus::FalsePositive || f.reachability == ReachabilityStatus::Unreachable {
-            VexStatus::NotAffected
-        } else if f.fix_version.is_some() {
-            VexStatus::Fixed
-        } else if f.status == FindingStatus::Confirmed {
-            VexStatus::Affected
-        } else {
-            VexStatus::UnderInvestigation
-        };
-        let justification = match &status {
-            VexStatus::NotAffected => Some(if f.reachability == ReachabilityStatus::Unreachable { "Not reachable".into() } else { "False positive".into() }),
-            VexStatus::Fixed => Some(format!("Fixed in {}", f.fix_version.as_deref().unwrap_or("unknown"))),
-            _ => None,
-        };
-        let action_statement = if status == VexStatus::Affected { f.fix_version.as_ref().map(|fv| format!("Upgrade to {}", fv)) } else { None };
-        VexStatement { vulnerability: f.advisory_id.to_string(), product: f.package.clone(), version: f.version.clone(), status, justification, action_statement }
-    }).collect();
-    VexDocument { bom_format: "VEX".into(), spec_version: "1.5".into(), version: 1, vex_statements: statements }
+    let statements = report
+        .findings
+        .iter()
+        .map(|f| {
+            let status = if f.status == FindingStatus::FalsePositive
+                || f.reachability == ReachabilityStatus::Unreachable
+            {
+                VexStatus::NotAffected
+            } else if f.fix_version.is_some() {
+                VexStatus::Fixed
+            } else if f.status == FindingStatus::Confirmed {
+                VexStatus::Affected
+            } else {
+                VexStatus::UnderInvestigation
+            };
+            let justification = match &status {
+                VexStatus::NotAffected => {
+                    Some(if f.reachability == ReachabilityStatus::Unreachable {
+                        "Not reachable".into()
+                    } else {
+                        "False positive".into()
+                    })
+                }
+                VexStatus::Fixed => Some(format!(
+                    "Fixed in {}",
+                    f.fix_version.as_deref().unwrap_or("unknown")
+                )),
+                _ => None,
+            };
+            let action_statement = if status == VexStatus::Affected {
+                f.fix_version
+                    .as_ref()
+                    .map(|fv| format!("Upgrade to {}", fv))
+            } else {
+                None
+            };
+            VexStatement {
+                vulnerability: f.advisory_id.to_string(),
+                product: f.package.clone(),
+                version: f.version.clone(),
+                status,
+                justification,
+                action_statement,
+            }
+        })
+        .collect();
+    VexDocument {
+        bom_format: "VEX".into(),
+        spec_version: "1.5".into(),
+        version: 1,
+        vex_statements: statements,
+    }
 }
 
 pub fn vex_to_json(doc: &VexDocument) -> Result<String, EnterpriseError> {
@@ -319,20 +514,57 @@ pub fn vex_to_json(doc: &VexDocument) -> Result<String, EnterpriseError> {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum PinningViolation { Floating, Wildcard, Range, NoLockfile }
+pub enum PinningViolation {
+    Floating,
+    Wildcard,
+    Range,
+    NoLockfile,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PinningFinding { pub package: String, pub version_spec: String, pub violation: PinningViolation, #[serde(skip_serializing_if = "Option::is_none")] pub suggested_version: Option<String> }
+pub struct PinningFinding {
+    pub package: String,
+    pub version_spec: String,
+    pub violation: PinningViolation,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suggested_version: Option<String>,
+}
 
 pub fn check_dependency_pinning(graph: &DependencyGraph) -> Vec<PinningFinding> {
     let mut findings = Vec::new();
     for dep in graph.dependencies.values() {
         let v = &dep.version;
         let qn = dep.qualified_name();
-        if v == "*" || v.is_empty() { findings.push(PinningFinding { package: qn, version_spec: v.clone(), violation: PinningViolation::Wildcard, suggested_version: None }); continue; }
+        if v == "*" || v.is_empty() {
+            findings.push(PinningFinding {
+                package: qn,
+                version_spec: v.clone(),
+                violation: PinningViolation::Wildcard,
+                suggested_version: None,
+            });
+            continue;
+        }
         let fc = v.chars().next().unwrap_or(' ');
-        if fc == '^' || fc == '~' { findings.push(PinningFinding { package: qn, version_spec: v.clone(), violation: PinningViolation::Floating, suggested_version: Some(v.trim_start_matches(|c: char| !c.is_ascii_digit()).to_string()) }); continue; }
-        if v.contains(',') || v.contains('>') || v.contains('<') { findings.push(PinningFinding { package: qn, version_spec: v.clone(), violation: PinningViolation::Range, suggested_version: None }); }
+        if fc == '^' || fc == '~' {
+            findings.push(PinningFinding {
+                package: qn,
+                version_spec: v.clone(),
+                violation: PinningViolation::Floating,
+                suggested_version: Some(
+                    v.trim_start_matches(|c: char| !c.is_ascii_digit())
+                        .to_string(),
+                ),
+            });
+            continue;
+        }
+        if v.contains(',') || v.contains('>') || v.contains('<') {
+            findings.push(PinningFinding {
+                package: qn,
+                version_spec: v.clone(),
+                violation: PinningViolation::Range,
+                suggested_version: None,
+            });
+        }
     }
     findings
 }
@@ -340,27 +572,59 @@ pub fn check_dependency_pinning(graph: &DependencyGraph) -> Vec<PinningFinding> 
 // ─── Goal 93: Registry Mirroring ────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RegistryMirror { pub ecosystem: String, pub original_url: String, pub mirror_url: String, #[serde(skip_serializing_if = "Option::is_none")] pub auth_token: Option<String>, #[serde(default = "default_true")] pub verify_tls: bool }
+pub struct RegistryMirror {
+    pub ecosystem: String,
+    pub original_url: String,
+    pub mirror_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_token: Option<String>,
+    #[serde(default = "default_true")]
+    pub verify_tls: bool,
+}
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct RegistryMirrorConfig { #[serde(default)] pub mirrors: Vec<RegistryMirror> }
+pub struct RegistryMirrorConfig {
+    #[serde(default)]
+    pub mirrors: Vec<RegistryMirror>,
+}
 
 impl RegistryMirrorConfig {
     pub fn get_mirror(&self, eco: &str, url: &str) -> Option<&RegistryMirror> {
-        self.mirrors.iter().find(|m| m.ecosystem == eco && m.original_url == url)
+        self.mirrors
+            .iter()
+            .find(|m| m.ecosystem == eco && m.original_url == url)
     }
     pub fn to_npmrc(&self) -> String {
-        self.mirrors.iter().filter(|m| m.ecosystem == "npm").map(|m| format!("registry={}\n", m.mirror_url)).collect()
+        self.mirrors
+            .iter()
+            .filter(|m| m.ecosystem == "npm")
+            .map(|m| format!("registry={}\n", m.mirror_url))
+            .collect()
     }
     pub fn to_cargo_config(&self) -> String {
-        let m: Vec<&RegistryMirror> = self.mirrors.iter().filter(|m| m.ecosystem == "crates").collect();
-        if m.is_empty() { return String::new(); }
+        let m: Vec<&RegistryMirror> = self
+            .mirrors
+            .iter()
+            .filter(|m| m.ecosystem == "crates")
+            .collect();
+        if m.is_empty() {
+            return String::new();
+        }
         let mut out = "[source.crates-io]\nreplace-with = \"mirror\"\n\n".to_string();
-        for mir in m { out.push_str(&format!("[source.mirror]\nregistry = \"{}\"\n\n", mir.mirror_url)); }
+        for mir in m {
+            out.push_str(&format!(
+                "[source.mirror]\nregistry = \"{}\"\n\n",
+                mir.mirror_url
+            ));
+        }
         out
     }
     pub fn to_pip_config(&self) -> String {
-        self.mirrors.iter().filter(|m| m.ecosystem == "pypi").map(|m| format!("index-url = {}\n", m.mirror_url)).collect()
+        self.mirrors
+            .iter()
+            .filter(|m| m.ecosystem == "pypi")
+            .map(|m| format!("index-url = {}\n", m.mirror_url))
+            .collect()
     }
 }
 
@@ -369,20 +633,40 @@ impl RegistryMirrorConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AirGappedConfig {
     pub advisory_db_path: PathBuf,
-    #[serde(skip_serializing_if = "Option::is_none")] pub license_db_path: Option<PathBuf>,
-    #[serde(default = "default_false")] pub allow_network: bool,
-    #[serde(skip_serializing_if = "Option::is_none")] pub registry_cache_path: Option<PathBuf>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub license_db_path: Option<PathBuf>,
+    #[serde(default = "default_false")]
+    pub allow_network: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub registry_cache_path: Option<PathBuf>,
 }
 
 impl Default for AirGappedConfig {
-    fn default() -> Self { Self { advisory_db_path: PathBuf::from(".pledgerecon-cache/advisories.json"), license_db_path: None, allow_network: false, registry_cache_path: None } }
+    fn default() -> Self {
+        Self {
+            advisory_db_path: PathBuf::from(".pledgerecon-cache/advisories.json"),
+            license_db_path: None,
+            allow_network: false,
+            registry_cache_path: None,
+        }
+    }
 }
 
 pub fn verify_air_gapped(config: &AirGappedConfig) -> Result<(), EnterpriseError> {
-    if !config.advisory_db_path.exists() { return Err(EnterpriseError::Invalid(format!("Advisory DB not found: {}", config.advisory_db_path.display()))); }
+    if !config.advisory_db_path.exists() {
+        return Err(EnterpriseError::Invalid(format!(
+            "Advisory DB not found: {}",
+            config.advisory_db_path.display()
+        )));
+    }
     let content = std::fs::read_to_string(&config.advisory_db_path)?;
-    serde_json::from_str::<serde_json::Value>(&content).map_err(|e| EnterpriseError::Invalid(format!("Invalid advisory DB: {}", e)))?;
-    if config.allow_network { return Err(EnterpriseError::Invalid("allow_network must be false".into())); }
+    serde_json::from_str::<serde_json::Value>(&content)
+        .map_err(|e| EnterpriseError::Invalid(format!("Invalid advisory DB: {}", e)))?;
+    if config.allow_network {
+        return Err(EnterpriseError::Invalid(
+            "allow_network must be false".into(),
+        ));
+    }
     Ok(())
 }
 
@@ -407,43 +691,83 @@ echo "[pledgerecon] Bundle complete at $OUTPUT_DIR"
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScanProfile {
-    pub name: String, pub path_pattern: String,
-    #[serde(default = "default_min_sev")] pub min_severity: String,
-    #[serde(default = "default_true")] pub reachability: bool,
-    #[serde(default)] pub fail_on_findings: bool,
-    #[serde(default)] pub ignore: Vec<crate::config::IgnoreRule>,
-    #[serde(default = "default_fmt")] pub output_format: String,
+    pub name: String,
+    pub path_pattern: String,
+    #[serde(default = "default_min_sev")]
+    pub min_severity: String,
+    #[serde(default = "default_true")]
+    pub reachability: bool,
+    #[serde(default)]
+    pub fail_on_findings: bool,
+    #[serde(default)]
+    pub ignore: Vec<crate::config::IgnoreRule>,
+    #[serde(default = "default_fmt")]
+    pub output_format: String,
 }
 
-fn default_min_sev() -> String { "low".into() }
-fn default_fmt() -> String { "text".into() }
+fn default_min_sev() -> String {
+    "low".into()
+}
+fn default_fmt() -> String {
+    "text".into()
+}
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MultiTenantConfig {
-    #[serde(default)] pub profiles: Vec<ScanProfile>,
-    #[serde(skip_serializing_if = "Option::is_none")] pub default_profile: Option<String>,
+    #[serde(default)]
+    pub profiles: Vec<ScanProfile>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_profile: Option<String>,
 }
 
 impl MultiTenantConfig {
     pub fn resolve_profile(&self, path: &Path) -> Option<&ScanProfile> {
         let p = path.to_string_lossy();
-        for prof in &self.profiles { if glob_match(&prof.path_pattern, &p) { return Some(prof); } }
-        self.default_profile.as_ref().and_then(|dn| self.profiles.iter().find(|p| &p.name == dn))
+        for prof in &self.profiles {
+            if glob_match(&prof.path_pattern, &p) {
+                return Some(prof);
+            }
+        }
+        self.default_profile
+            .as_ref()
+            .and_then(|dn| self.profiles.iter().find(|p| &p.name == dn))
     }
 }
 
 fn glob_match(pattern: &str, path: &str) -> bool {
     let pc: Vec<char> = pattern.chars().collect();
     let hc: Vec<char> = path.chars().collect();
-    let mut pi = 0; let mut hi = 0;
+    let mut pi = 0;
+    let mut hi = 0;
     while pi < pc.len() && hi < hc.len() {
         match pc[pi] {
-            '*' => { if pi == pc.len()-1 { return true; } for i in hi..hc.len() { if glob_match(&pattern[pi+1..], &path[i..]) { return true; } } return false; }
-            '?' => { pi += 1; hi += 1; }
-            c => { if c != hc[hi] { return false; } pi += 1; hi += 1; }
+            '*' => {
+                if pi == pc.len() - 1 {
+                    return true;
+                }
+                for i in hi..hc.len() {
+                    if glob_match(&pattern[pi + 1..], &path[i..]) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            '?' => {
+                pi += 1;
+                hi += 1;
+            }
+            c => {
+                if c != hc[hi] {
+                    return false;
+                }
+                pi += 1;
+                hi += 1;
+            }
         }
     }
-    while pi < pc.len() && pc[pi] == '*' { pi += 1; }
+    while pi < pc.len() && pc[pi] == '*' {
+        pi += 1;
+    }
     pi == pc.len() && hi == hc.len()
 }
 
@@ -451,31 +775,86 @@ fn glob_match(pattern: &str, path: &str) -> bool {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RestApiConfig {
-    #[serde(default = "default_bind")] pub bind_addr: String,
-    #[serde(default = "default_port")] pub port: u16,
-    #[serde(skip_serializing_if = "Option::is_none")] pub auth_token: Option<String>,
-    #[serde(default = "default_true")] pub enable_cors: bool,
+    #[serde(default = "default_bind")]
+    pub bind_addr: String,
+    #[serde(default = "default_port")]
+    pub port: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_token: Option<String>,
+    #[serde(default = "default_true")]
+    pub enable_cors: bool,
 }
 
-fn default_bind() -> String { "0.0.0.0".into() }
-fn default_port() -> u16 { 8080 }
+fn default_bind() -> String {
+    "0.0.0.0".into()
+}
+fn default_port() -> u16 {
+    8080
+}
 
 impl Default for RestApiConfig {
-    fn default() -> Self { Self { bind_addr: default_bind(), port: default_port(), auth_token: None, enable_cors: true } }
+    fn default() -> Self {
+        Self {
+            bind_addr: default_bind(),
+            port: default_port(),
+            auth_token: None,
+            enable_cors: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ApiEndpoint { pub method: String, pub path: String, pub description: String, pub requires_auth: bool }
+pub struct ApiEndpoint {
+    pub method: String,
+    pub path: String,
+    pub description: String,
+    pub requires_auth: bool,
+}
 
 pub fn api_endpoints() -> Vec<ApiEndpoint> {
     vec![
-        ApiEndpoint { method: "POST".into(), path: "/api/v1/scan".into(), description: "Start a scan".into(), requires_auth: true },
-        ApiEndpoint { method: "GET".into(), path: "/api/v1/scan/:id".into(), description: "Get scan results".into(), requires_auth: true },
-        ApiEndpoint { method: "GET".into(), path: "/api/v1/scans".into(), description: "List scans".into(), requires_auth: true },
-        ApiEndpoint { method: "POST".into(), path: "/api/v1/sbom".into(), description: "Generate SBOM".into(), requires_auth: true },
-        ApiEndpoint { method: "GET".into(), path: "/api/v1/findings".into(), description: "Query findings".into(), requires_auth: true },
-        ApiEndpoint { method: "GET".into(), path: "/api/v1/trends".into(), description: "Trend data".into(), requires_auth: true },
-        ApiEndpoint { method: "GET".into(), path: "/api/v1/health".into(), description: "Health check".into(), requires_auth: false },
+        ApiEndpoint {
+            method: "POST".into(),
+            path: "/api/v1/scan".into(),
+            description: "Start a scan".into(),
+            requires_auth: true,
+        },
+        ApiEndpoint {
+            method: "GET".into(),
+            path: "/api/v1/scan/:id".into(),
+            description: "Get scan results".into(),
+            requires_auth: true,
+        },
+        ApiEndpoint {
+            method: "GET".into(),
+            path: "/api/v1/scans".into(),
+            description: "List scans".into(),
+            requires_auth: true,
+        },
+        ApiEndpoint {
+            method: "POST".into(),
+            path: "/api/v1/sbom".into(),
+            description: "Generate SBOM".into(),
+            requires_auth: true,
+        },
+        ApiEndpoint {
+            method: "GET".into(),
+            path: "/api/v1/findings".into(),
+            description: "Query findings".into(),
+            requires_auth: true,
+        },
+        ApiEndpoint {
+            method: "GET".into(),
+            path: "/api/v1/trends".into(),
+            description: "Trend data".into(),
+            requires_auth: true,
+        },
+        ApiEndpoint {
+            method: "GET".into(),
+            path: "/api/v1/health".into(),
+            description: "Health check".into(),
+            requires_auth: false,
+        },
     ]
 }
 
@@ -484,7 +863,12 @@ pub fn generate_openapi_spec() -> serde_json::Value {
     for ep in api_endpoints() {
         let pk = ep.path.replace(":id", "{id}");
         let op = serde_json::json!({ "summary": ep.description, "security": if ep.requires_auth { serde_json::json!([{"bearerAuth": []}]) } else { serde_json::json!([]) } });
-        paths.entry(pk).or_insert_with(|| serde_json::json!({})).as_object_mut().unwrap().insert(ep.method.to_lowercase(), op);
+        paths
+            .entry(pk)
+            .or_insert_with(|| serde_json::json!({}))
+            .as_object_mut()
+            .unwrap()
+            .insert(ep.method.to_lowercase(), op);
     }
     serde_json::json!({ "openapi": "3.0.0", "info": { "title": "PledgeRecon API", "version": "1.0.0" }, "paths": paths })
 }
@@ -519,7 +903,19 @@ type TrendPoint { date: String!, critical: Int!, high: Int!, medium: Int!, low: 
 type Sbom { format: String!, components: [SbomComponent!]! }
 type SbomComponent { name: String!, version: String!, ecosystem: String! }
 "#;
-    GraphqlSchema { schema: schema.to_string(), resolvers: vec!["scan".into(), "scans".into(), "findings".into(), "advisories".into(), "trends".into(), "sbom".into(), "runScan".into(), "generateSbom".into()] }
+    GraphqlSchema {
+        schema: schema.to_string(),
+        resolvers: vec![
+            "scan".into(),
+            "scans".into(),
+            "findings".into(),
+            "advisories".into(),
+            "trends".into(),
+            "sbom".into(),
+            "runScan".into(),
+            "generateSbom".into(),
+        ],
+    }
 }
 
 // ─── Goal 98: Web UI Dashboard ──────────────────────────────────────────────
@@ -574,14 +970,22 @@ fetch('/api/v1/findings').then(r=>r.json()).then(d=>{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebhookConfig {
     pub url: String,
-    #[serde(default = "default_true")] pub include_findings: bool,
-    #[serde(skip_serializing_if = "Option::is_none")] pub secret: Option<String>,
-    #[serde(default)] pub events: Vec<WebhookEvent>,
+    #[serde(default = "default_true")]
+    pub include_findings: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secret: Option<String>,
+    #[serde(default)]
+    pub events: Vec<WebhookEvent>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum WebhookEvent { ScanCompleted, NewVulnerability, CriticalVulnerability, BaselineExceeded }
+pub enum WebhookEvent {
+    ScanCompleted,
+    NewVulnerability,
+    CriticalVulnerability,
+    BaselineExceeded,
+}
 
 pub fn build_webhook_payload(report: &ScanReport, event: &WebhookEvent) -> serde_json::Value {
     let event_str = match event {
@@ -608,14 +1012,19 @@ pub fn build_webhook_payload(report: &ScanReport, event: &WebhookEvent) -> serde
     })
 }
 
-pub fn send_webhook(config: &WebhookConfig, report: &ScanReport, event: &WebhookEvent) -> Result<(), EnterpriseError> {
+pub fn send_webhook(
+    config: &WebhookConfig,
+    report: &ScanReport,
+    event: &WebhookEvent,
+) -> Result<(), EnterpriseError> {
     let payload = build_webhook_payload(report, event);
     let body = serde_json::to_string(&payload)?;
     let mut req = ureq::post(&config.url).set("Content-Type", "application/json");
     if let Some(ref secret) = config.secret {
         req = req.set("X-PledgeRecon-Secret", secret);
     }
-    req.send_string(&body).map_err(|e| EnterpriseError::Invalid(format!("Webhook failed: {}", e)))?;
+    req.send_string(&body)
+        .map_err(|e| EnterpriseError::Invalid(format!("Webhook failed: {}", e)))?;
     Ok(())
 }
 
@@ -652,13 +1061,15 @@ mod tests {
                 {"name": "lodash", "version": "4.17.11", "purl": "pkg:npm/lodash"},
                 {"name": "express", "version": "4.18.0", "purl": "pkg:npm/express"}
             ]
-        }).to_string();
+        })
+        .to_string();
         let new = serde_json::json!({
             "components": [
                 {"name": "lodash", "version": "4.17.21", "purl": "pkg:npm/lodash"},
                 {"name": "axios", "version": "1.0.0", "purl": "pkg:npm/axios"}
             ]
-        }).to_string();
+        })
+        .to_string();
         let diff = diff_sboms(&old, &new).unwrap();
         assert_eq!(diff.added.len(), 1);
         assert_eq!(diff.removed.len(), 1);
@@ -671,10 +1082,19 @@ mod tests {
     #[test]
     fn test_sbom_diff_to_text() {
         let diff = SbomDiff {
-            added: vec![SbomComponent { name: "axios".into(), version: "1.0.0".into(), ecosystem: "npm".into() }],
+            added: vec![SbomComponent {
+                name: "axios".into(),
+                version: "1.0.0".into(),
+                ecosystem: "npm".into(),
+            }],
             removed: vec![],
             changed: vec![],
-            summary: SbomDiffSummary { added: 1, removed: 0, changed: 0, unchanged: 0 },
+            summary: SbomDiffSummary {
+                added: 1,
+                removed: 0,
+                changed: 0,
+                unchanged: 0,
+            },
         };
         let text = sbom_diff_to_text(&diff);
         assert!(text.contains("axios"));
@@ -683,8 +1103,13 @@ mod tests {
     #[test]
     fn test_vex_generation() {
         let report = ScanReport {
-            scan_id: "test".into(), project_name: "test".into(), scanned_at: chrono::Utc::now(),
-            duration_ms: 100, dependencies_scanned: 0, advisories_checked: 0, findings: vec![],
+            scan_id: "test".into(),
+            project_name: "test".into(),
+            scanned_at: chrono::Utc::now(),
+            duration_ms: 100,
+            dependencies_scanned: 0,
+            advisories_checked: 0,
+            findings: vec![],
         };
         let vex = generate_vex(&report);
         assert_eq!(vex.bom_format, "VEX");
@@ -695,24 +1120,63 @@ mod tests {
     fn test_pinning_check() {
         use crate::dependency::{Dependency, DependencyKind};
         let mut graph = DependencyGraph::new();
-        graph.add(Dependency { name: "lodash".into(), version: "^4.17.21".into(), kind: DependencyKind::Npm, is_direct: true, manifest_path: std::path::PathBuf::from("package.json"), dependencies: vec![], source_url: None });
-        graph.add(Dependency { name: "express".into(), version: "4.18.0".into(), kind: DependencyKind::Npm, is_direct: true, manifest_path: std::path::PathBuf::from("package.json"), dependencies: vec![], source_url: None });
-        graph.add(Dependency { name: "wild".into(), version: "*".into(), kind: DependencyKind::Npm, is_direct: true, manifest_path: std::path::PathBuf::from("package.json"), dependencies: vec![], source_url: None });
+        graph.add(Dependency {
+            name: "lodash".into(),
+            version: "^4.17.21".into(),
+            kind: DependencyKind::Npm,
+            is_direct: true,
+            manifest_path: std::path::PathBuf::from("package.json"),
+            dependencies: vec![],
+            source_url: None,
+        });
+        graph.add(Dependency {
+            name: "express".into(),
+            version: "4.18.0".into(),
+            kind: DependencyKind::Npm,
+            is_direct: true,
+            manifest_path: std::path::PathBuf::from("package.json"),
+            dependencies: vec![],
+            source_url: None,
+        });
+        graph.add(Dependency {
+            name: "wild".into(),
+            version: "*".into(),
+            kind: DependencyKind::Npm,
+            is_direct: true,
+            manifest_path: std::path::PathBuf::from("package.json"),
+            dependencies: vec![],
+            source_url: None,
+        });
         let findings = check_dependency_pinning(&graph);
         assert_eq!(findings.len(), 2);
-        assert!(findings.iter().any(|f| f.violation == PinningViolation::Floating));
-        assert!(findings.iter().any(|f| f.violation == PinningViolation::Wildcard));
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.violation == PinningViolation::Floating)
+        );
+        assert!(
+            findings
+                .iter()
+                .any(|f| f.violation == PinningViolation::Wildcard)
+        );
     }
 
     #[test]
     fn test_registry_mirror_config() {
         let config = RegistryMirrorConfig {
             mirrors: vec![RegistryMirror {
-                ecosystem: "npm".into(), original_url: "https://registry.npmjs.org".into(),
-                mirror_url: "https://artifactory.example.com/npm".into(), auth_token: None, verify_tls: true,
+                ecosystem: "npm".into(),
+                original_url: "https://registry.npmjs.org".into(),
+                mirror_url: "https://artifactory.example.com/npm".into(),
+                auth_token: None,
+                verify_tls: true,
             }],
         };
-        assert!(config.get_mirror("npm", "https://registry.npmjs.org").is_some());
+        assert!(
+            config
+                .get_mirror("npm", "https://registry.npmjs.org")
+                .is_some()
+        );
         assert!(config.get_mirror("crates", "https://crates.io").is_none());
         let npmrc = config.to_npmrc();
         assert!(npmrc.contains("artifactory"));
@@ -724,9 +1188,15 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("advisories.json"), r#"{"test": true}"#).unwrap();
-        let config = AirGappedConfig { advisory_db_path: dir.join("advisories.json"), ..Default::default() };
+        let config = AirGappedConfig {
+            advisory_db_path: dir.join("advisories.json"),
+            ..Default::default()
+        };
         assert!(verify_air_gapped(&config).is_ok());
-        let bad = AirGappedConfig { advisory_db_path: dir.join("missing.json"), ..Default::default() };
+        let bad = AirGappedConfig {
+            advisory_db_path: dir.join("missing.json"),
+            ..Default::default()
+        };
         assert!(verify_air_gapped(&bad).is_err());
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -743,28 +1213,73 @@ mod tests {
     fn test_multi_tenant_resolve() {
         let config = MultiTenantConfig {
             profiles: vec![
-                ScanProfile { name: "frontend".into(), path_pattern: "packages/frontend/*".into(), min_severity: "high".into(), reachability: true, fail_on_findings: true, ignore: vec![], output_format: "sarif".into() },
-                ScanProfile { name: "backend".into(), path_pattern: "packages/backend/*".into(), min_severity: "medium".into(), reachability: true, fail_on_findings: false, ignore: vec![], output_format: "json".into() },
+                ScanProfile {
+                    name: "frontend".into(),
+                    path_pattern: "packages/frontend/*".into(),
+                    min_severity: "high".into(),
+                    reachability: true,
+                    fail_on_findings: true,
+                    ignore: vec![],
+                    output_format: "sarif".into(),
+                },
+                ScanProfile {
+                    name: "backend".into(),
+                    path_pattern: "packages/backend/*".into(),
+                    min_severity: "medium".into(),
+                    reachability: true,
+                    fail_on_findings: false,
+                    ignore: vec![],
+                    output_format: "json".into(),
+                },
             ],
             default_profile: Some("backend".into()),
         };
-        assert_eq!(config.resolve_profile(Path::new("packages/frontend/src")).unwrap().name, "frontend");
-        assert_eq!(config.resolve_profile(Path::new("packages/backend/api")).unwrap().name, "backend");
-        assert_eq!(config.resolve_profile(Path::new("other/path")).unwrap().name, "backend");
+        assert_eq!(
+            config
+                .resolve_profile(Path::new("packages/frontend/src"))
+                .unwrap()
+                .name,
+            "frontend"
+        );
+        assert_eq!(
+            config
+                .resolve_profile(Path::new("packages/backend/api"))
+                .unwrap()
+                .name,
+            "backend"
+        );
+        assert_eq!(
+            config
+                .resolve_profile(Path::new("other/path"))
+                .unwrap()
+                .name,
+            "backend"
+        );
     }
 
     #[test]
     fn test_api_endpoints() {
         let eps = api_endpoints();
-        assert!(eps.iter().any(|e| e.path == "/api/v1/scan" && e.method == "POST"));
-        assert!(eps.iter().any(|e| e.path == "/api/v1/health" && !e.requires_auth));
+        assert!(
+            eps.iter()
+                .any(|e| e.path == "/api/v1/scan" && e.method == "POST")
+        );
+        assert!(
+            eps.iter()
+                .any(|e| e.path == "/api/v1/health" && !e.requires_auth)
+        );
     }
 
     #[test]
     fn test_openapi_spec() {
         let spec = generate_openapi_spec();
         assert_eq!(spec["openapi"], "3.0.0");
-        assert!(spec["paths"].as_object().unwrap().contains_key("/api/v1/scan"));
+        assert!(
+            spec["paths"]
+                .as_object()
+                .unwrap()
+                .contains_key("/api/v1/scan")
+        );
     }
 
     #[test]
@@ -784,8 +1299,13 @@ mod tests {
     #[test]
     fn test_webhook_payload() {
         let report = ScanReport {
-            scan_id: "test".into(), project_name: "test".into(), scanned_at: chrono::Utc::now(),
-            duration_ms: 100, dependencies_scanned: 0, advisories_checked: 0, findings: vec![],
+            scan_id: "test".into(),
+            project_name: "test".into(),
+            scanned_at: chrono::Utc::now(),
+            duration_ms: 100,
+            dependencies_scanned: 0,
+            advisories_checked: 0,
+            findings: vec![],
         };
         let payload = build_webhook_payload(&report, &WebhookEvent::ScanCompleted);
         assert_eq!(payload["event"], "scan.completed");

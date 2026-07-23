@@ -167,7 +167,10 @@ pub fn create_fix_pr(
     }
 
     let title = if suggestions.len() == 1 {
-        format!("fix: upgrade {} to {}", suggestions[0].package, suggestions[0].fix_version)
+        format!(
+            "fix: upgrade {} to {}",
+            suggestions[0].package, suggestions[0].fix_version
+        )
     } else {
         format!("fix: upgrade {} dependencies", suggestions.len())
     };
@@ -321,23 +324,27 @@ pub fn recommend_base_image(scan: &ContainerScanResult) -> Vec<BaseImageRecommen
     }
 
     // Recommend distroless for production.
-    if !current.contains("distroless") {
-        if current.contains("gcr.io/distroless") || current.contains("python") || current.contains("node") {
-            let distroless = if current.contains("python") {
-                "gcr.io/distroless/python3-debian12".to_string()
-            } else if current.contains("node") {
-                "gcr.io/distroless/nodejs20-debian12".to_string()
-            } else {
-                "gcr.io/distroless/static-debian12".to_string()
-            };
-            recommendations.push(BaseImageRecommendation {
-                current_image: current.clone(),
-                recommended_image: distroless,
-                reason: "Distroless images contain no shell or package manager, minimizing attack surface".into(),
-                size_reduction: Some("~100MB".into()),
-                vulnerability_reduction: Some(scan.os_packages.len()),
-            });
-        }
+    if !current.contains("distroless")
+        && (current.contains("gcr.io/distroless")
+            || current.contains("python")
+            || current.contains("node"))
+    {
+        let distroless = if current.contains("python") {
+            "gcr.io/distroless/python3-debian12".to_string()
+        } else if current.contains("node") {
+            "gcr.io/distroless/nodejs20-debian12".to_string()
+        } else {
+            "gcr.io/distroless/static-debian12".to_string()
+        };
+        recommendations.push(BaseImageRecommendation {
+            current_image: current.clone(),
+            recommended_image: distroless,
+            reason:
+                "Distroless images contain no shell or package manager, minimizing attack surface"
+                    .into(),
+            size_reduction: Some("~100MB".into()),
+            vulnerability_reduction: Some(scan.os_packages.len()),
+        });
     }
 
     // Recommend Alpine for smaller images.
@@ -347,7 +354,7 @@ pub fn recommend_base_image(scan: &ContainerScanResult) -> Vec<BaseImageRecommen
         } else if current.contains("node") {
             current.replace("node", "node:alpine")
         } else {
-            format!("alpine:3.19")
+            "alpine:3.19".to_string()
         };
         recommendations.push(BaseImageRecommendation {
             current_image: current.clone(),
@@ -481,10 +488,19 @@ pub fn batch_remediation(
 }
 
 fn create_batch(suggestions: &[RemediationSuggestion], batch_num: usize) -> BatchRemediation {
-    let packages: Vec<String> = suggestions.iter().map(|s| s.package.clone()).collect::<std::collections::HashSet<_>>().into_iter().collect();
+    let packages: Vec<String> = suggestions
+        .iter()
+        .map(|s| s.package.clone())
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
     BatchRemediation {
         batch_id: format!("batch-{}", batch_num),
-        title: format!("Security fixes batch #{} ({} packages)", batch_num, packages.len()),
+        title: format!(
+            "Security fixes batch #{} ({} packages)",
+            batch_num,
+            packages.len()
+        ),
         suggestions: suggestions.to_vec(),
         total_findings: suggestions.len(),
         total_packages: packages.len(),
@@ -586,7 +602,10 @@ pub fn analyze_changelog(
 
     let safe = breaking.is_empty();
     let recommendation = if safe {
-        format!("Safe to upgrade {} from {} to {}", package, from_version, to_version)
+        format!(
+            "Safe to upgrade {} from {} to {}",
+            package, from_version, to_version
+        )
     } else {
         format!(
             "CAUTION: {} has {} breaking change(s) between {} and {}. Review before upgrading.",
@@ -625,15 +644,36 @@ pub struct DeprecationStatus {
 /// Known deprecated packages and their alternatives.
 fn known_deprecated() -> HashMap<&'static str, (&'static str, &'static str)> {
     let mut map = HashMap::new();
-    map.insert("npm:request", ("Deprecated since 2020", "node-fetch, axios, got"));
+    map.insert(
+        "npm:request",
+        ("Deprecated since 2020", "node-fetch, axios, got"),
+    );
     map.insert("npm:node-uuid", ("Replaced by uuid", "uuid"));
-    map.insert("npm:lodash", ("Consider lodash-es or native JS", "lodash-es, radash"));
-    map.insert("npm:moment", ("Deprecated, use modern alternatives", "dayjs, date-fns"));
-    map.insert("npm:left-pad", ("No longer needed", "String.prototype.padStart"));
-    map.insert("npm:colors", ("Malicious version detected", "chalk, picocolors"));
+    map.insert(
+        "npm:lodash",
+        ("Consider lodash-es or native JS", "lodash-es, radash"),
+    );
+    map.insert(
+        "npm:moment",
+        ("Deprecated, use modern alternatives", "dayjs, date-fns"),
+    );
+    map.insert(
+        "npm:left-pad",
+        ("No longer needed", "String.prototype.padStart"),
+    );
+    map.insert(
+        "npm:colors",
+        ("Malicious version detected", "chalk, picocolors"),
+    );
     map.insert("npm:faker", ("Project abandoned", "@faker-js/faker"));
-    map.insert("PyPI:distutils", ("Removed in Python 3.12", "setuptools, packaging"));
-    map.insert("PyPI:pip-tools", ("Use pip-compile directly", "pip-compile"));
+    map.insert(
+        "PyPI:distutils",
+        ("Removed in Python 3.12", "setuptools, packaging"),
+    );
+    map.insert(
+        "PyPI:pip-tools",
+        ("Use pip-compile directly", "pip-compile"),
+    );
     map
 }
 
@@ -726,7 +766,10 @@ fn generate_iac_fix(finding: &IacFinding, file_type: &str) -> Option<IacAutoFix>
             file_path: finding.file_path.clone(),
             rule_id: finding.rule_id.clone(),
             description: "Remove secret from ENV, use build-time ARG or runtime secret".into(),
-            original_line: format!("ENV API_KEY={}", finding.description.split('=').nth(1).unwrap_or("secret")),
+            original_line: format!(
+                "ENV API_KEY={}",
+                finding.description.split('=').nth(1).unwrap_or("secret")
+            ),
             patched_line: "# ENV API_KEY removed — use runtime secret injection".into(),
             line_number: finding.line,
         }),
@@ -838,7 +881,10 @@ mod tests {
 
     #[test]
     fn test_guided_remediation() {
-        let findings = vec![make_finding(VulnerabilitySeverity::High, Some("4.17.21".into()))];
+        let findings = vec![make_finding(
+            VulnerabilitySeverity::High,
+            Some("4.17.21".into()),
+        )];
         let graph = make_graph();
         let suggestions = guided_remediation(&findings, &graph);
         assert_eq!(suggestions.len(), 1);
@@ -864,7 +910,10 @@ mod tests {
 
     #[test]
     fn test_create_fix_pr() {
-        let findings = vec![make_finding(VulnerabilitySeverity::High, Some("4.17.21".into()))];
+        let findings = vec![make_finding(
+            VulnerabilitySeverity::High,
+            Some("4.17.21".into()),
+        )];
         let graph = make_graph();
         let suggestions = guided_remediation(&findings, &graph);
         let pr = create_fix_pr(&suggestions, "package.json", "{\"lodash\": \"4.17.0\"}").unwrap();
@@ -910,14 +959,22 @@ mod tests {
         let scan = ContainerScanResult {
             image_ref: "python:3.12".into(),
             distro: LinuxDistro::Unknown,
-            os_packages: vec![OsPackage { name: "test".into(), version: "1.0".into(), distro: LinuxDistro::Unknown, manager: "dpkg".into(), arch: None }],
+            os_packages: vec![OsPackage {
+                name: "test".into(),
+                version: "1.0".into(),
+                distro: LinuxDistro::Unknown,
+                manager: "dpkg".into(),
+                arch: None,
+            }],
             app_dependencies: vec![],
             vulnerabilities: vec![],
             summary: ContainerScanSummary::default(),
         };
         let recs = recommend_base_image(&scan);
         assert!(!recs.is_empty());
-        assert!(recs.iter().any(|r| r.recommended_image.contains("slim") || r.recommended_image.contains("alpine") || r.recommended_image.contains("distroless")));
+        assert!(recs.iter().any(|r| r.recommended_image.contains("slim")
+            || r.recommended_image.contains("alpine")
+            || r.recommended_image.contains("distroless")));
     }
 
     #[test]
@@ -939,7 +996,10 @@ mod tests {
 
     #[test]
     fn test_remediation_roi() {
-        let findings = vec![make_finding(VulnerabilitySeverity::Critical, Some("4.17.21".into()))];
+        let findings = vec![make_finding(
+            VulnerabilitySeverity::Critical,
+            Some("4.17.21".into()),
+        )];
         let graph = make_graph();
         let suggestions = guided_remediation(&findings, &graph);
         let rois = score_remediation_roi(&findings, &suggestions);
@@ -949,11 +1009,17 @@ mod tests {
 
     #[test]
     fn test_remediation_roi_priority() {
-        let findings = vec![make_finding(VulnerabilitySeverity::Critical, Some("4.17.21".into()))];
+        let findings = vec![make_finding(
+            VulnerabilitySeverity::Critical,
+            Some("4.17.21".into()),
+        )];
         let graph = make_graph();
         let suggestions = guided_remediation(&findings, &graph);
         let rois = score_remediation_roi(&findings, &suggestions);
-        assert!(rois[0].priority == RemediationPriority::Critical || rois[0].priority == RemediationPriority::High);
+        assert!(
+            rois[0].priority == RemediationPriority::Critical
+                || rois[0].priority == RemediationPriority::High
+        );
     }
 
     // Goal 146 tests
@@ -986,7 +1052,10 @@ mod tests {
 
     #[test]
     fn test_dry_run() {
-        let findings = vec![make_finding(VulnerabilitySeverity::High, Some("4.17.21".into()))];
+        let findings = vec![make_finding(
+            VulnerabilitySeverity::High,
+            Some("4.17.21".into()),
+        )];
         let graph = make_graph();
         let suggestions = guided_remediation(&findings, &graph);
         let dry = dry_run_remediation(&suggestions, "package.json");

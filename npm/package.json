@@ -1,6 +1,6 @@
 {
   "name": "pledgerecon",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Rust-native dependency vulnerability scanner with AST reachability, taint analysis, and AI triage",
   "license": "MIT",
   "repository": {

@@ -108,11 +108,7 @@ impl SlackNotification {
                 .map(|f| {
                     format!(
                         "• {} `{}` — `{}@{}` [{}]",
-                        f.severity,
-                        f.advisory_id,
-                        f.package,
-                        f.version,
-                        f.summary
+                        f.severity, f.advisory_id, f.package, f.version, f.summary
                     )
                 })
                 .collect::<Vec<_>>()
@@ -328,7 +324,10 @@ impl EmailReport {
     /// Build the email subject for a scan report.
     pub fn build_subject(&self, report: &ScanReport) -> String {
         if report.findings.is_empty() {
-            format!("[PledgeRecon] {} — No vulnerabilities found", report.project_name)
+            format!(
+                "[PledgeRecon] {} — No vulnerabilities found",
+                report.project_name
+            )
         } else {
             let critical = report.count_by_severity(VulnerabilitySeverity::Critical);
             let high = report.count_by_severity(VulnerabilitySeverity::High);
@@ -351,9 +350,7 @@ impl EmailReport {
 
         let mut html = String::new();
         html.push_str("<html><body style=\"font-family: sans-serif;\">\n");
-        html.push_str(&format!(
-            "<h2>PledgeRecon Security Scan Report</h2>\n"
-        ));
+        html.push_str("<h2>PledgeRecon Security Scan Report</h2>\n");
         html.push_str(&format!(
             "<p><strong>Project:</strong> {}<br>\n\
              <strong>Scan ID:</strong> {}<br>\n\
@@ -366,7 +363,9 @@ impl EmailReport {
         ));
 
         if report.findings.is_empty() {
-            html.push_str("<p style=\"color: green; font-size: 1.2em;\">✅ No vulnerabilities found.</p>\n");
+            html.push_str(
+                "<p style=\"color: green; font-size: 1.2em;\">✅ No vulnerabilities found.</p>\n",
+            );
         } else {
             html.push_str(&format!(
                 "<h3>Summary: {} findings</h3>\n\
@@ -500,7 +499,12 @@ mod tests {
         let payload = slack.build_payload(&report);
         let attachments = payload["attachments"].as_array().unwrap();
         assert_eq!(attachments.len(), 1);
-        assert!(attachments[0]["title"].as_str().unwrap().contains("finding"));
+        assert!(
+            attachments[0]["title"]
+                .as_str()
+                .unwrap()
+                .contains("finding")
+        );
     }
 
     #[test]
@@ -527,7 +531,12 @@ mod tests {
         let teams = TeamsNotification::new("https://outlook.office.com/webhook/test");
         let report = make_empty_report();
         let payload = teams.build_payload(&report);
-        assert!(payload["summary"].as_str().unwrap().contains("No vulnerabilities"));
+        assert!(
+            payload["summary"]
+                .as_str()
+                .unwrap()
+                .contains("No vulnerabilities")
+        );
     }
 
     #[test]

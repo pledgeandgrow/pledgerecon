@@ -4,8 +4,10 @@
 //! instance is available. They are skipped gracefully when Ollama is not running.
 
 use pledgerecon_core::config::TriageConfig;
+use pledgerecon_core::finding::{
+    Finding, FindingStatus, ReachabilityStatus, VulnerabilitySeverity,
+};
 use pledgerecon_core::triage::{TriageEngine, TriageVerdict};
-use pledgerecon_core::finding::{Finding, FindingStatus, ReachabilityStatus, VulnerabilitySeverity};
 use std::path::PathBuf;
 
 fn make_test_finding() -> Finding {
@@ -21,7 +23,11 @@ fn make_test_finding() -> Finding {
         fix_available: true,
         reachability: ReachabilityStatus::Reachable,
         vulnerable_functions: vec!["template".to_string()],
-        call_chain: vec!["main".to_string(), "render".to_string(), "lodash.template".to_string()],
+        call_chain: vec![
+            "main".to_string(),
+            "render".to_string(),
+            "lodash.template".to_string(),
+        ],
         status: FindingStatus::Pending,
         triage_explanation: None,
         references: vec!["https://nvd.nist.gov/vuln/detail/CVE-2021-23337".to_string()],
@@ -32,13 +38,10 @@ fn make_test_finding() -> Finding {
 }
 
 fn ollama_available() -> bool {
-    match ureq::get("http://localhost:11434/api/tags")
+    ureq::get("http://localhost:11434/api/tags")
         .set("Accept", "application/json")
         .call()
-    {
-        Ok(_) => true,
-        Err(_) => false,
-    }
+        .is_ok()
 }
 
 #[test]
@@ -71,11 +74,17 @@ fn test_ollama_triage_integration() {
                 ),
                 "verdict should be valid"
             );
-            assert!(!result.explanation.is_empty(), "explanation should not be empty");
+            assert!(
+                !result.explanation.is_empty(),
+                "explanation should not be empty"
+            );
         }
         Err(e) => {
             // If the model isn't available, that's okay for CI.
-            eprintln!("Ollama triage returned error (model may not be pulled): {}", e);
+            eprintln!(
+                "Ollama triage returned error (model may not be pulled): {}",
+                e
+            );
         }
     }
 }

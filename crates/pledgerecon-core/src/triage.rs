@@ -548,7 +548,11 @@ Respond with a JSON array where each element corresponds to the finding:
 
         // Ollama doesn't require an API key — handle it separately.
         if provider == "ollama" {
-            let endpoint = self.config.endpoint.as_deref().unwrap_or("http://localhost:11434/api/generate");
+            let endpoint = self
+                .config
+                .endpoint
+                .as_deref()
+                .unwrap_or("http://localhost:11434/api/generate");
             let body = serde_json::json!({
                 "model": model,
                 "prompt": prompt,
@@ -565,7 +569,8 @@ Respond with a JSON array where each element corresponds to the finding:
                 .into_json()
                 .map_err(|e| TriageError::Parse(e.to_string()))?;
 
-            let text = raw.get("response")
+            let text = raw
+                .get("response")
                 .and_then(|r| r.as_str())
                 .unwrap_or_default()
                 .to_string();

@@ -204,11 +204,7 @@ impl DiffReport {
             for c in &self.severity_changes {
                 out.push_str(&format!(
                     "  ~ {} — {}@{}: {} → {}\n",
-                    c.advisory_id,
-                    c.package,
-                    c.version,
-                    c.previous_severity,
-                    c.current_severity
+                    c.advisory_id, c.package, c.version, c.previous_severity, c.current_severity
                 ));
             }
         }
@@ -533,7 +529,7 @@ impl TrendTracker {
             latest_total = self.points.last().map(|p| p.total_findings).unwrap_or(0),
             latest_crit = self.points.last().map(|p| p.critical).unwrap_or(0),
             latest_reach = self.points.last().map(|p| p.reachable).unwrap_or(0),
-            data = &points_json,
+            data = points_json,
             rows = self
                 .points
                 .iter()
@@ -702,7 +698,10 @@ mod tests {
         assert_eq!(tracker.points.len(), 1);
         assert_eq!(tracker.points[0].total_findings, 2);
 
-        tracker.add_report(&make_report(vec![make_finding("CVE-001", VulnerabilitySeverity::High)]));
+        tracker.add_report(&make_report(vec![make_finding(
+            "CVE-001",
+            VulnerabilitySeverity::High,
+        )]));
         assert_eq!(tracker.points.len(), 2);
         assert_eq!(tracker.trend_direction(), TrendDirection::Improving);
     }
@@ -710,7 +709,10 @@ mod tests {
     #[test]
     fn test_trend_to_text() {
         let mut tracker = TrendTracker::new("test-project");
-        tracker.add_report(&make_report(vec![make_finding("CVE-001", VulnerabilitySeverity::High)]));
+        tracker.add_report(&make_report(vec![make_finding(
+            "CVE-001",
+            VulnerabilitySeverity::High,
+        )]));
         let text = tracker.to_text();
         assert!(text.contains("Trend Report"));
         assert!(text.contains("test-project"));
@@ -719,7 +721,10 @@ mod tests {
     #[test]
     fn test_trend_to_html() {
         let mut tracker = TrendTracker::new("test-project");
-        tracker.add_report(&make_report(vec![make_finding("CVE-001", VulnerabilitySeverity::High)]));
+        tracker.add_report(&make_report(vec![make_finding(
+            "CVE-001",
+            VulnerabilitySeverity::High,
+        )]));
         let html = tracker.to_html();
         assert!(html.contains("Trend Dashboard"));
         assert!(html.contains("test-project"));
@@ -732,7 +737,10 @@ mod tests {
         let path = dir.join("trend.json");
 
         let mut tracker = TrendTracker::new("test-project");
-        tracker.add_report(&make_report(vec![make_finding("CVE-001", VulnerabilitySeverity::High)]));
+        tracker.add_report(&make_report(vec![make_finding(
+            "CVE-001",
+            VulnerabilitySeverity::High,
+        )]));
         tracker.save(&path).unwrap();
 
         let loaded = TrendTracker::load(&path).unwrap();

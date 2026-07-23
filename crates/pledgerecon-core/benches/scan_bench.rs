@@ -2,11 +2,11 @@
 //!
 //! Run with: cargo bench -p pledgerecon-core
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use pledgerecon_core::config::ScanConfig;
 use pledgerecon_core::dependency::build_dependency_graph;
-use pledgerecon_core::scanner::Scanner;
 use pledgerecon_core::sbom::SbomGenerator;
+use pledgerecon_core::scanner::Scanner;
 use pledgerecon_core::secret::{builtin_patterns, scan_source_code, shannon_entropy};
 use std::path::PathBuf;
 

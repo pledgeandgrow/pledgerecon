@@ -514,6 +514,117 @@ impl AdvisoryDatabase {
     }
 }
 
+/// Parse a CVSS v3.x vector string and compute the base score.
+///
+/// CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L → 3.7
+/// Uses the standard CVSS v3.1 base score formula.
+fn parse_cvss_base_score(vector: &str) -> Option<f64> {
+    // If it's already a numeric score, parse directly
+    if let Ok(score) = vector.parse::<f64>() {
+        return Some(score);
+    }
+
+    // Must be a CVSS vector string
+    if !vector.starts_with("CVSS:3.") {
+        return None;
+    }
+
+    let metrics: std::collections::HashMap<&str, &str> = vector
+        .split('/')
+        .filter_map(|part| {
+            let (key, value) = part.split_once(':')?;
+            Some((key, value))
+        })
+        .collect();
+
+    // Scope: if "C" (Changed), use different formula
+    let scope_changed = metrics.get("S").map(|s| *s == "C").unwrap_or(false);
+
+    // Extract values
+    let av = metrics.get("AV").copied().unwrap_or("N");
+    let ac = metrics.get("AC").copied().unwrap_or("L");
+    let pr = metrics.get("PR").copied().unwrap_or("N");
+    let ui = metrics.get("UI").copied().unwrap_or("N");
+    let c = metrics.get("C").copied().unwrap_or("N");
+    let i = metrics.get("I").copied().unwrap_or("N");
+    let a = metrics.get("A").copied().unwrap_or("N");
+
+    // Exploitability sub-score
+    let av_val = match av {
+        "N" => 0.85,
+        "A" => 0.62,
+        "L" => 0.55,
+        "P" => 0.2,
+        _ => 0.85,
+    };
+    let ac_val = match ac {
+        "L" => 0.77,
+        "H" => 0.44,
+        _ => 0.77,
+    };
+    let ui_val = match ui {
+        "N" => 0.85,
+        "R" => 0.62,
+        _ => 0.85,
+    };
+    let pr_val = if scope_changed {
+        match pr {
+            "N" => 0.85,
+            "L" => 0.68,
+            "H" => 0.5,
+            _ => 0.85,
+        }
+    } else {
+        match pr {
+            "N" => 0.85,
+            "L" => 0.62,
+            "H" => 0.27,
+            _ => 0.85,
+        }
+    };
+
+    let exploitability = 8.22 * av_val * ac_val * pr_val * ui_val;
+
+    // Impact sub-score
+    let c_val = match c {
+        "H" => 0.56,
+        "L" => 0.22,
+        "N" => 0.0,
+        _ => 0.0,
+    };
+    let i_val = match i {
+        "H" => 0.56,
+        "L" => 0.22,
+        "N" => 0.0,
+        _ => 0.0,
+    };
+    let a_val = match a {
+        "H" => 0.56,
+        "L" => 0.22,
+        "N" => 0.0,
+        _ => 0.0,
+    };
+
+    let iss: f64 = 1.0 - ((1.0 - c_val) * (1.0 - i_val) * (1.0 - a_val));
+
+    let impact: f64 = if scope_changed {
+        7.52 * (iss - 0.029) - 3.25 * (iss - 0.02).powi(15)
+    } else {
+        6.42 * iss
+    };
+
+    let base_score: f64 = if impact <= 0.0 {
+        0.0
+    } else if scope_changed {
+        (1.08 * (impact + exploitability)).min(10.0)
+    } else {
+        ((impact + exploitability).min(10.0)).ceil()
+    };
+
+    // Round to 1 decimal place
+    Some((base_score * 10.0).round() / 10.0)
+}
+
 /// Parse an OSV.dev vulnerability JSON object into an [`Advisory`].
 fn parse_osv_advisory(v: &serde_json::Value) -> Advisory {
     let id = v
@@ -544,23 +655,31 @@ fn parse_osv_advisory(v: &serde_json::Value) -> Advisory {
         })
         .unwrap_or_default();
 
-    let severity = v
-        .get("severity")
-        .and_then(|s| s.as_array())
-        .and_then(|arr| arr.first())
-        .and_then(|s| s.get("score"))
+    // Try to determine severity from multiple sources.
+    // 1. database_specific.severity (e.g. "HIGH", "MODERATE", "CRITICAL", "LOW")
+    let adv_severity = v
+        .get("database_specific")
+        .and_then(|d| d.get("severity"))
         .and_then(|s| s.as_str())
-        .and_then(|s| {
-            // Parse CVSS vector string to extract base score
-            if let Some(start) = s.find("CVSS:3.") {
-                let _ = &s[start..];
-            }
-            // Try to extract a numeric score from the vector
-            s.split('/')
-                .find_map(|part| part.strip_prefix("AV:").map(String::from).or(None))
+        .and_then(|s| match s.to_uppercase().as_str() {
+            "CRITICAL" => Some(AdvisorySeverity::Critical),
+            "HIGH" => Some(AdvisorySeverity::High),
+            "MODERATE" | "MEDIUM" => Some(AdvisorySeverity::Medium),
+            "LOW" => Some(AdvisorySeverity::Low),
+            _ => None,
         })
-        .and(None::<f64>)
-        .unwrap_or(0.0);
+        // 2. Parse CVSS vector string to extract base score
+        .or_else(|| {
+            v.get("severity")
+                .and_then(|s| s.as_array())
+                .and_then(|arr| arr.first())
+                .and_then(|s| s.get("score"))
+                .and_then(|s| s.as_str())
+                .and_then(parse_cvss_base_score)
+                .map(AdvisorySeverity::from_cvss)
+        })
+        // 3. Fall back to None
+        .unwrap_or(AdvisorySeverity::None);
 
     let cvss_score = v
         .get("severity")
@@ -568,13 +687,7 @@ fn parse_osv_advisory(v: &serde_json::Value) -> Advisory {
         .and_then(|arr| arr.first())
         .and_then(|s| s.get("score"))
         .and_then(|s| s.as_str())
-        .and_then(|s| {
-            // Try parsing as a numeric score directly
-            s.parse::<f64>().ok()
-        });
-
-    let final_cvss = cvss_score.unwrap_or(severity);
-    let adv_severity = AdvisorySeverity::from_cvss(final_cvss);
+        .and_then(parse_cvss_base_score);
 
     let mut ranges = Vec::new();
     if let Some(affected) = v.get("affected").and_then(|a| a.as_array()) {
@@ -668,7 +781,7 @@ fn parse_osv_advisory(v: &serde_json::Value) -> Advisory {
         summary,
         description,
         severity: adv_severity,
-        cvss_score: Some(final_cvss),
+        cvss_score,
         ranges,
         references,
         cwes: Vec::new(),
